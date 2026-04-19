@@ -70,14 +70,14 @@ jobs:
 
       - name: Upload Debug APK artifact
         if: always()
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v5
         with:
           name: SeeDay-Agent-Android-debug
           path: agents/android-agent/app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
       - name: Upload Release APK artifact
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@v5
         if: ${{ hashFiles('agents/android-agent/app/build/outputs/apk/release/*.apk') != '' }}
         with:
           name: SeeDay-Agent-Android-release
