@@ -15,10 +15,10 @@ android {
         versionName = "1.5.2"
     }
 
-    signingConfigs {
-        create("release") {
-            val ksFile = System.getenv("KEYSTORE_FILE")
-            if (ksFile != null) {
+    val ksFile = System.getenv("KEYSTORE_FILE")
+    if (ksFile != null) {
+        signingConfigs {
+            create("release") {
                 storeFile = file(ksFile)
                 storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
                 keyAlias = System.getenv("KEY_ALIAS") ?: "release"
@@ -29,9 +29,9 @@ android {
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("release").takeIf {
-                System.getenv("KEYSTORE_FILE") != null
-            } ?: signingConfigs.getByName("debug")
+            if (ksFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             isMinifyEnabled = true
@@ -40,9 +40,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release").takeIf {
-                System.getenv("KEYSTORE_FILE") != null
-            } ?: signingConfigs.getByName("debug")
+            if (ksFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
