@@ -16,6 +16,10 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -42,22 +46,13 @@ jobs:
           cd agents/windows
           python -m PyInstaller --onefile --noconsole --name SeeDay-Agent agent.py
 
-      - name: Create Tag (if triggered manually)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
-
       - name: Create Release
-        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version }}
-          name: SeeDay ${{ github.event.inputs.version }}
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
           files: agents/windows/dist/SeeDay-Agent.exe
-          prerelease: ${{ github.event.inputs.prerelease }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
