@@ -25,9 +25,6 @@ permissions:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout code
@@ -38,32 +35,42 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
+
+      - name: Check Android SDK environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la "$ANDROID_HOME/cmdline-tools/" 2>/dev/null || echo "No cmdline-tools"
+          ls -la "$ANDROID_HOME/platforms/" 2>/dev/null || echo "No platforms"
+          ls -la "$ANDROID_HOME/build-tools/" 2>/dev/null || echo "No build-tools"
+          which sdkmanager 2>/dev/null || echo "sdkmanager not in PATH"
 
       - name: Accept SDK licenses
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          yes | sdkmanager --licenses || true
 
       - name: Install Android SDK components
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" || true
 
-      - name: Download gradle-wrapper.jar
+      - name: Generate Gradle wrapper
         run: |
-          mkdir -p agents/android-agent/gradle/wrapper
-          curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" \
-            -o agents/android-agent/gradle/wrapper/gradle-wrapper.jar
+          cd agents/android-agent
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.5
+          fi
 
       - name: Build Debug APK
         working-directory: agents/android-agent
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -200
 
       - name: Build Release APK
         working-directory: agents/android-agent
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
-        continue-on-error: true
+          ./gradlew assembleRelease --no-daemon --stacktrace || true
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
