@@ -35,10 +35,9 @@
 - 支持多种 AI 提供商（OpenAI / Claude / DeepSeek / Ollama）
 - 简洁的中文摘要回顾
 
-### 隐私优先
-- 数据完全本地存储
-- 灵活的隐私设置
-- 不上传任何个人数据到云端
+### 隐私说明
+
+本项目提供基础的隐私处理机制（应用分级过滤、敏感词过滤），但并非专业的隐私保护工具。详细隐私说明请见 [Wiki](https://github.com/Muelsyselove/SeeDay/wiki/Features#隐私说明)。
 
 ## 项目结构
 
