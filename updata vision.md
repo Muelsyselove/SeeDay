@@ -1,5 +1,21 @@
 # 更新记录
 
+## v1.5.0 - 2026-04-19
+### 新增 Android Agent 应用
+- 新增独立 Android 项目 `packages/android-agent/`，使用 Kotlin 原生开发
+- 实现无障碍服务（`MonitorAccessibilityService`），监听 `TYPE_WINDOW_STATE_CHANGED` 事件捕获前台应用包名
+- 实现前台服务（`MonitorService`），通过常驻通知保障后台持续运行
+- 实现开机自启（`BootReceiver`），监听 `BOOT_COMPLETED` 广播自动恢复服务
+- 实现数据上报模块（`ApiClient`），对接现有 `/api/report` 接口，支持 `;;` 分隔多应用格式
+- 实现电池信息采集（`battery_percent`、`battery_charging`）
+- 实现网络异常缓存重试机制（最多缓存 50 条待重试数据）
+- 实现配置管理（`ConfigManager`），使用 SharedPreferences 持久化服务器地址、Token、上报间隔
+- 实现主界面（`MainActivity`），展示运行状态、当前应用、上次上报时间、服务器连接状态
+- 实现设置界面（`SettingsActivity`），可编辑服务器地址、设备 Token、上报间隔
+- 实现无障碍服务启用引导，未开启时自动跳转系统设置
+- 配置 Gradle Kotlin DSL 构建系统，支持 `assembleDebug` 和 `assembleRelease` APK 打包
+- 最低 SDK 版本 API 26（Android 8.0），目标 SDK 34
+
 ## v1.4.1 - 2026-04-19
 ### 修正隐私描述
 - **README.md**：
