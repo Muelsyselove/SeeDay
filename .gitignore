@@ -19,3 +19,11 @@ __pycache__/
 build/
 *.zip
 packages/backend/public/
+.trae/
+wiki/
+data/
+*.conf.bak
+merge-activities.js
+merge-all-activities.js
+agents/android-agent/local.properties
+*.keystore
