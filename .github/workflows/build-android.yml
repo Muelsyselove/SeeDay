@@ -66,7 +66,11 @@ jobs:
       - name: Verify Keystore
         working-directory: agents/android-agent
         run: |
-          keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" || echo "Keystore verification failed"
+          echo "Available aliases in keystore:"
+          keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>&1 | head -20
+          echo "---"
+          echo "Checking alias '${{ secrets.KEY_ALIAS }}':"
+          keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" || echo "Alias not found! Please update KEY_ALIAS secret to match one of the aliases listed above."
 
       - name: Build Debug APK
         working-directory: agents/android-agent
