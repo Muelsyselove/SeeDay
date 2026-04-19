@@ -1,5 +1,23 @@
 # 更新记录
 
+## v1.4.0 - 2026-04-19
+### 重构 README 和创建 Wiki 文档
+- **README.md 重构**：
+  - 将致谢部分移到项目简介之后、功能特性之前
+  - 优化 Agent 表述，明确标注四个平台的支持状态：
+    - Windows（已支持）、macOS（开发中）、iOS（开发中）、Android（开发中）
+  - 在项目结构中添加 iOS 和 Android 目录占位
+  - 在"文档"部分添加 Wiki 链接入口
+- **创建完整 Wiki 文档**（6 个页面）：
+  - `Home.md`：项目概述、快速导航、核心特性、Agent 平台支持表
+  - `Features.md`：实时活动追踪、可视化仪表盘、AI 每日总结、隐私保护、主题系统、多设备支持
+  - `Architecture.md`：系统架构图、技术栈、数据流转、API 接口设计、数据模型、核心服务
+  - `Requirements.md`：服务器配置要求（最低 2核4G，推荐60G存储）、网络要求、安全建议
+  - `Deployment-Guide.md`：Docker 部署、手动部署、Nginx 配置、HTTPS 配置、环境变量、问题排查
+  - `AI-Deployment.md`：Claude Code、GitHub Copilot Chat、Trae AI、Codex CLI 的详细部署指南
+- Wiki 文件已推送到主仓库 `wiki/` 目录
+- **GitHub Wiki 初始化**：需在 GitHub 网页上手动初始化 Wiki 仓库后推送
+
 ## v1.3.0 - 2026-04-19
 ### 修改项目描述为 SeeDay（顾日）
 - 重写 README.md，将项目从 "Live Dashboard" 改为 "SeeDay（顾日）"
