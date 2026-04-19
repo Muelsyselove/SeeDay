@@ -49,6 +49,13 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" || true
 
+      - name: Decode Keystore
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > agents/android-agent/release.keystore
+
       - name: Generate Gradle wrapper
         run: |
           cd agents/android-agent
@@ -59,14 +66,24 @@ jobs:
 
       - name: Build Debug APK
         working-directory: agents/android-agent
+        env:
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_BASE64 != '' && 'release.keystore' || '' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
         working-directory: agents/android-agent
+        env:
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_BASE64 != '' && 'release.keystore' || '' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace || true
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload Debug APK artifact
         if: always()
@@ -90,7 +107,9 @@ jobs:
         with:
           tag: ${{ github.event.inputs.version || github.ref_name }}
           name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
-          artifacts: agents/android-agent/app/build/outputs/apk/debug/*.apk
+          artifacts: |
+            agents/android-agent/app/build/outputs/apk/debug/*.apk
+            agents/android-agent/app/build/outputs/apk/release/*.apk
           prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           generateReleaseNotes: true
           omitBody: true
