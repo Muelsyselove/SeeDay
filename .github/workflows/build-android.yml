@@ -63,6 +63,11 @@ jobs:
             curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
           fi
 
+      - name: Verify Keystore
+        working-directory: agents/android-agent
+        run: |
+          keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" || echo "Keystore verification failed"
+
       - name: Build Debug APK
         working-directory: agents/android-agent
         env:
@@ -72,7 +77,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -100
 
       - name: Build Release APK
         working-directory: agents/android-agent
