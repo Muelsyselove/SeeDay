@@ -1,5 +1,12 @@
 # 更新记录
 
+## v1.5.4 - 2026-04-20
+### 更新服务器地址为 HTTPS
+- 服务器地址应使用 `https://doinday.top`（HTTPS 加密连接）
+- 服务器已配置 Nginx 反向代理 + SSL，端口 3000 外部不可直接访问
+- 更新 `versionCode` 为 4，`versionName` 为 "1.5.4"
+- 后端添加 `/api/report` 请求日志，便于排查连接问题
+
 ## v1.5.3 - 2026-04-20
 ### 修复 Android Agent 监控运行但始终显示"尚未上报"
 - **修复 1**：`ApiClient.lastReportTime` 添加 `@Volatile` 注解，确保 IO 线程更新后主线程可见

@@ -51,7 +51,10 @@ const server = Bun.serve({
 
     try {
       if (pathname === "/api/report" && req.method === "POST") {
+        const clientIp = req.headers.get("x-real-ip") || req.headers.get("cf-connecting-ip") || server.requestIP(req)?.address || "unknown";
+        console.log(`[report] Request from ${clientIp} | User-Agent: ${req.headers.get("user-agent") || "unknown"}`);
         response = await handleReport(req);
+        console.log(`[report] Response: ${response.status}`);
       } else if (pathname === "/api/current" && req.method === "GET") {
         const clientIp =
           req.headers.get("x-real-ip") ||
