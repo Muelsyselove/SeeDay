@@ -1,5 +1,16 @@
 # 更新记录
 
+## v1.5.2 - 2026-04-20
+### 修复 Android Agent 始终显示"尚未上报"问题
+- **问题**：手机端 Agent 启动监控后始终显示"尚未上报"，前端也不显示手机在线
+- **原因 1**：`MonitorService.performReport()` 在 `currentPackageName` 为空时静默返回，不更新通知。而 `MonitorAccessibilityService` 初始化时 `currentPackageName = ""`，只有收到非自身包名的事件后才更新。如果用户在 Agent 界面启动监控，事件被过滤（`packageName == this.packageName`），导致包名始终为空
+- **原因 2**：`event.text` 在很多 Android 应用中返回空字符串，窗口标题获取不完整
+- **修复 1**：添加 `UsageStatsManager` 作为备用前台应用检测方式，当无障碍服务未检测到包名时，通过使用统计 API 获取最近活跃的应用
+- **修复 2**：`MonitorAccessibilityService` 中 `windowTitle` 获取逻辑增加 `contentDescription` 备用
+- **修复 3**：`MonitorService.performReport()` 在包名为空时更新通知为"等待检测前台应用..."，而非静默跳过
+- **修复 4**：添加 `PACKAGE_USAGE_STATS` 权限声明，启动监控时引导用户授予使用统计权限
+- **修复 5**：`MonitorAccessibilityService.onServiceConnected()` 不再重置 `currentPackageName`，避免服务重连时丢失已检测的应用信息
+
 ## v1.5.1 - 2026-04-20
 ### 修复 Android Agent 无障碍服务检测失败问题
 - **问题**：已开启无障碍服务但应用仍显示"无障碍服务未启用"

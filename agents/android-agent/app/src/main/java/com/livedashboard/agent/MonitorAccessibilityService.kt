@@ -15,8 +15,6 @@ class MonitorAccessibilityService : AccessibilityService() {
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             notificationTimeout = 100
         }
-        currentPackageName = ""
-        currentWindowTitle = ""
         isServiceRunning = true
     }
 
@@ -27,7 +25,12 @@ class MonitorAccessibilityService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         if (packageName == this.packageName) return
 
-        val title = event.text?.joinToString("") ?: ""
+        val title = buildString {
+            event.text?.joinTo(this, "")
+            if (isEmpty()) {
+                event.contentDescription?.let { append(it) }
+            }
+        }
 
         currentPackageName = packageName
         currentWindowTitle = title

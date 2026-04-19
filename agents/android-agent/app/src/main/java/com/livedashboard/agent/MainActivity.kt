@@ -1,8 +1,11 @@
 package com.livedashboard.agent
 
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.AppOpsManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Process
 import android.provider.Settings
 import android.view.View
 import android.widget.Switch
@@ -56,6 +59,10 @@ class MainActivity : AppCompatActivity() {
                     switchMonitor.isChecked = false
                     return@setOnCheckedChangeListener
                 }
+                if (!isUsageStatsGranted()) {
+                    Toast.makeText(this, "请授予使用统计权限以获取更准确的前台应用信息", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                }
                 startMonitorService()
                 configManager.saveMonitoringEnabled(true)
             } else {
@@ -86,9 +93,11 @@ class MainActivity : AppCompatActivity() {
             else -> "监控运行中"
         }
 
-        tvCurrentApp.text = if (MonitorAccessibilityService.isServiceRunning) {
-            MonitorAccessibilityService.currentPackageName.ifEmpty { "无"
-            }
+        val currentApp = MonitorAccessibilityService.currentPackageName
+        tvCurrentApp.text = if (MonitorAccessibilityService.isServiceRunning && currentApp.isNotEmpty()) {
+            currentApp
+        } else if (MonitorAccessibilityService.isServiceRunning) {
+            "等待应用切换..."
         } else {
             "无障碍服务未连接"
         }
@@ -124,6 +133,10 @@ class MainActivity : AppCompatActivity() {
                         switchMonitor.isChecked = false
                         return@setOnCheckedChangeListener
                     }
+                    if (!isUsageStatsGranted()) {
+                        Toast.makeText(this, "请授予使用统计权限以获取更准确的前台应用信息", Toast.LENGTH_LONG).show()
+                        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                    }
                     startMonitorService()
                     configManager.saveMonitoringEnabled(true)
                 } else {
@@ -153,10 +166,19 @@ class MainActivity : AppCompatActivity() {
         val enabledServices = am.getEnabledAccessibilityServiceList(
             AccessibilityServiceInfo.FEEDBACK_ALL_MASK
         )
-
         return enabledServices.any { serviceInfo ->
             serviceInfo.resolveInfo.serviceInfo.packageName == packageName &&
             serviceInfo.resolveInfo.serviceInfo.name.contains("MonitorAccessibilityService")
         }
+    }
+
+    private fun isUsageStatsGranted(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = appOps.unsafeCheckOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            packageName
+        )
+        return mode == AppOpsManager.MODE_ALLOWED
     }
 }

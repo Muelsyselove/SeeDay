@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -74,23 +76,54 @@ class MonitorService : Service() {
         configManager.saveMonitoringEnabled(false)
     }
 
-    private suspend fun performReport() {
-        if (!MonitorAccessibilityService.isServiceRunning) {
-            updateNotification("无障碍服务未启用")
-            return
+    private fun getForegroundApp(): Pair<String, String> {
+        if (MonitorAccessibilityService.isServiceRunning && MonitorAccessibilityService.currentPackageName.isNotEmpty()) {
+            return Pair(
+                MonitorAccessibilityService.currentPackageName,
+                MonitorAccessibilityService.currentWindowTitle
+            )
         }
 
-        val packageName = MonitorAccessibilityService.currentPackageName
-        if (packageName.isEmpty()) return
+        try {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val endTime = System.currentTimeMillis()
+            val startTime = endTime - 5000
+            val events = usm.queryEvents(startTime, endTime)
+            var lastApp = ""
+            var lastClass = ""
+            while (events.hasNextEvent()) {
+                val event = UsageEvents.Event()
+                events.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
+                    lastApp = event.packageName
+                    lastClass = event.className
+                }
+            }
+            if (lastApp.isNotEmpty() && lastApp != packageName) {
+                return Pair(lastApp, lastClass)
+            }
+        } catch (_: Exception) {
+        }
+
+        return Pair("", "")
+    }
+
+    private suspend fun performReport() {
+        val (appId, windowTitle) = getForegroundApp()
+
+        if (appId.isEmpty()) {
+            updateNotification("运行中 | 等待检测前台应用...")
+            return
+        }
 
         val extra = apiClient.getBatteryInfo(this)
         val c = java.util.Calendar.getInstance()
         val timestamp = "${c.get(java.util.Calendar.YEAR)};${c.get(java.util.Calendar.MONTH) + 1};${c.get(java.util.Calendar.DAY_OF_MONTH)};${String.format("%02d", c.get(java.util.Calendar.HOUR_OF_DAY))}:${String.format("%02d", c.get(java.util.Calendar.MINUTE))}"
 
         val payload = ReportPayload(
-            appId = packageName,
-            windowTitle = MonitorAccessibilityService.currentWindowTitle,
-            isForeground = MonitorAccessibilityService.currentIsForeground,
+            appId = appId,
+            windowTitle = windowTitle,
+            isForeground = true,
             timestamp = timestamp,
             extra = extra
         )
