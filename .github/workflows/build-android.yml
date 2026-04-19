@@ -51,7 +51,9 @@ jobs:
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > agents/android-agent/release.keystore
+          printf '%s' "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > agents/android-agent/release.keystore
+          ls -la agents/android-agent/release.keystore
+          file agents/android-agent/release.keystore
 
       - name: Generate Gradle wrapper
         run: |
