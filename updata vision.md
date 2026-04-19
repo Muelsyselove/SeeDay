@@ -1,5 +1,12 @@
 # 更新记录
 
+## v1.5.3 - 2026-04-20
+### 修复 Android Agent 监控运行但始终显示"尚未上报"
+- **修复 1**：`ApiClient.lastReportTime` 添加 `@Volatile` 注解，确保 IO 线程更新后主线程可见
+- **修复 2**：`getForegroundApp()` UsageStatsManager 事件查询窗口从 5 秒扩大到 60 秒
+- **修复 3**：添加 `queryUsageStats()` 作为更可靠的二级回退，查找最近使用的应用
+- 更新 `versionCode` 为 3，`versionName` 为 "1.5.3"
+
 ## v1.5.2 - 2026-04-20
 ### 修复 Android Agent 始终显示"尚未上报"问题
 - **问题**：手机端 Agent 启动监控后始终显示"尚未上报"，前端也不显示手机在线
