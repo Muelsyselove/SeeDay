@@ -1,5 +1,12 @@
 # 更新记录
 
+## v1.5.1 - 2026-04-20
+### 修复 Android Agent 无障碍服务检测失败问题
+- **问题**：已开启无障碍服务但应用仍显示"无障碍服务未启用"
+- **原因**：`isAccessibilityServiceEnabled()` 使用 `Settings.Secure.getString()` 读取 `ENABLED_ACCESSIBILITY_SERVICES` 系统设置项，但从 Android 13（API 33）起，出于隐私保护，第三方应用无法再读取该设置项，`getString()` 始终返回 `null`，导致检测方法永远返回 `false`
+- **修复**：将检测方式从 `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` 改为 `AccessibilityManager.getEnabledAccessibilityServiceList()`，这是 Android 官方推荐的 API，在所有版本上均可正常工作
+- 移除不再需要的 `android.text.TextUtils` 和 `android.view.accessibility.AccessibilityManager` 导入（改为内联引用）
+
 ## v1.5.0 - 2026-04-19
 ### 新增 Android Agent 应用
 - 新增独立 Android 项目 `packages/android-agent/`，使用 Kotlin 原生开发

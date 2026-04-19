@@ -4,8 +4,6 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
-import android.text.TextUtils
-import android.view.accessibility.AccessibilityManager
 import android.view.View
 import android.widget.Switch
 import android.widget.TextView
@@ -151,19 +149,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val am = getSystemService(ACCESSIBILITY_SERVICE) as AccessibilityManager
-        val enabledServices = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
+        val am = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+        val enabledServices = am.getEnabledAccessibilityServiceList(
+            AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+        )
 
-        val serviceName = "$packageName/.MonitorAccessibilityService"
-        val colonSplitter = TextUtils.SimpleStringSplitter(':')
-        colonSplitter.setString(enabledServices)
-        while (colonSplitter.hasNext()) {
-            val component = colonSplitter.next()
-            if (component.equals(serviceName, ignoreCase = true)) return true
+        return enabledServices.any { serviceInfo ->
+            serviceInfo.resolveInfo.serviceInfo.packageName == packageName &&
+            serviceInfo.resolveInfo.serviceInfo.name.contains("MonitorAccessibilityService")
         }
-        return false
     }
 }
