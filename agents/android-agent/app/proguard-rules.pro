@@ -1,5 +1,10 @@
-# Add project specific ProGuard rules here.
 -keepattributes *Annotation*
 -keep class com.livedashboard.agent.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
+-dontwarn javax.annotation.**
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+-keep class com.google.gson.** { *; }
+-keep class kotlin.Unit
+-keep class kotlinx.coroutines.** { *; }

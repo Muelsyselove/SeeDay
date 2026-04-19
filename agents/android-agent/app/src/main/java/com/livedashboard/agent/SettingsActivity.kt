@@ -90,9 +90,9 @@ class SettingsActivity : AppCompatActivity() {
         val port: Int
 
         try {
-            val javaUrl = java.net.URL(url)
-            host = javaUrl.host
-            port = if (javaUrl.port > 0) javaUrl.port else javaUrl.defaultPort
+            val uri = java.net.URI(url)
+            host = uri.host ?: ""
+            port = if (uri.port > 0) uri.port else if (isHttps) 443 else 80
         } catch (e: Exception) {
             return@withContext "URL 解析失败: ${e.message}"
         }

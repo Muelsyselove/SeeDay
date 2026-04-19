@@ -1,5 +1,11 @@
 # 更新记录
 
+## v1.5.8 - 2026-04-20
+### 修复 Release 构建失败
+- `SettingsActivity` 中 `java.net.URL` 改为 `java.net.URI`，避免 R8 编译报错
+- 更新 ProGuard 规则，保留 OkHttp/OkIO/Gson/Coroutines 类
+- 更新 `versionCode` 为 8，`versionName` 为 "1.5.8"
+
 ## v1.5.7 - 2026-04-20
 ### 添加连接测试功能，排查网络问题
 - 设置页面新增"测试连接"按钮，逐步检测：DNS 解析 → TCP 连接 → HTTP 请求
