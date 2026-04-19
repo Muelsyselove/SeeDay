@@ -1,5 +1,13 @@
 # 更新记录
 
+## v1.5.5 - 2026-04-20
+### 添加详细调试日志，排查上报失败问题
+- `performReport()` 在检测不到前台应用时，通知栏显示无障碍服务状态和包名信息
+- `performReport()` 上报前显示"上报中: 包名"状态
+- `performReport()` 上报失败时显示完整错误信息（50 字符）
+- `getForegroundApp()` 添加 Log.d/Log.w 日志，记录每种检测方式的结果
+- 更新 `versionCode` 为 5，`versionName` 为 "1.5.5"
+
 ## v1.5.4 - 2026-04-20
 ### 更新服务器地址为 HTTPS
 - 服务器地址应使用 `https://doinday.top`（HTTPS 加密连接）

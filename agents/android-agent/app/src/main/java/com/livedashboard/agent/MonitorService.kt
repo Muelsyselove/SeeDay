@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 
@@ -78,11 +79,14 @@ class MonitorService : Service() {
 
     private fun getForegroundApp(): Pair<String, String> {
         if (MonitorAccessibilityService.isServiceRunning && MonitorAccessibilityService.currentPackageName.isNotEmpty()) {
+            Log.d(TAG, "getForegroundApp: accessibility -> ${MonitorAccessibilityService.currentPackageName}")
             return Pair(
                 MonitorAccessibilityService.currentPackageName,
                 MonitorAccessibilityService.currentWindowTitle
             )
         }
+
+        Log.d(TAG, "getForegroundApp: accessibility not available (running=${MonitorAccessibilityService.isServiceRunning}, pkg=${MonitorAccessibilityService.currentPackageName}), trying UsageStatsManager")
 
         try {
             val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -100,12 +104,13 @@ class MonitorService : Service() {
                 }
             }
             if (lastApp.isNotEmpty() && lastApp != packageName) {
+                Log.d(TAG, "getForegroundApp: events -> $lastApp")
                 return Pair(lastApp, lastClass)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "getForegroundApp: events query failed", e)
         }
 
-        // Fallback: use queryUsageStats for more reliable detection
         try {
             val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
@@ -115,11 +120,15 @@ class MonitorService : Service() {
                 .filter { it.packageName != packageName && it.lastTimeUsed > 0 }
                 .maxByOrNull { it.lastTimeUsed }
             if (foregroundStat != null) {
+                Log.d(TAG, "getForegroundApp: usageStats -> ${foregroundStat.packageName}")
                 return Pair(foregroundStat.packageName, "")
             }
-        } catch (_: Exception) {
+            Log.d(TAG, "getForegroundApp: usageStats returned ${usageStatsList.size} entries, none usable")
+        } catch (e: Exception) {
+            Log.w(TAG, "getForegroundApp: usageStats query failed", e)
         }
 
+        Log.w(TAG, "getForegroundApp: all methods failed, returning empty")
         return Pair("", "")
     }
 
@@ -127,7 +136,9 @@ class MonitorService : Service() {
         val (appId, windowTitle) = getForegroundApp()
 
         if (appId.isEmpty()) {
-            updateNotification("运行中 | 等待检测前台应用...")
+            val a11yRunning = MonitorAccessibilityService.isServiceRunning
+            val a11yPkg = MonitorAccessibilityService.currentPackageName
+            updateNotification("运行中 | 无前台应用 (a11y=$a11yRunning pkg=$a11yPkg)")
             return
         }
 
@@ -143,6 +154,7 @@ class MonitorService : Service() {
             extra = extra
         )
 
+        updateNotification("运行中 | 上报中: $appId")
         val result = apiClient.report(listOf(payload), this)
         if (result.isSuccess) {
             val lastTime = apiClient.getLastReportTime()
@@ -152,7 +164,9 @@ class MonitorService : Service() {
             } else "--:--:--"
             updateNotification("运行中 | 上次上报: $timeStr")
         } else {
-            updateNotification("运行中 | 上报失败: ${result.exceptionOrNull()?.message?.take(30)}")
+            val errMsg = result.exceptionOrNull()?.message?.take(50) ?: "unknown"
+            Log.e(TAG, "performReport: report failed: $errMsg")
+            updateNotification("运行中 | 上报失败: $errMsg")
         }
     }
 
@@ -192,6 +206,7 @@ class MonitorService : Service() {
     }
 
     companion object {
+        private const val TAG = "MonitorService"
         const val CHANNEL_ID = "monitor_service_channel"
         const val NOTIFICATION_ID = 1
         const val ACTION_START = "com.livedashboard.agent.START"
