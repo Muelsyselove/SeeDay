@@ -37,7 +37,7 @@
 
 ### 隐私说明
 
-本项目提供基础的隐私处理机制（应用分级过滤、敏感词过滤），但并非专业的隐私保护工具。详细隐私说明请见 [Wiki](https://github.com/Muelsyselove/SeeDay/wiki/Features#隐私说明)。
+本项目提供基础的隐私处理机制（应用分级过滤、敏感词过滤），但数据会被 Agent 上报到后端服务器。详细隐私说明请见 [Wiki](https://github.com/Muelsyselove/SeeDay/wiki/Features#隐私说明)。
 
 ## 项目结构
 
