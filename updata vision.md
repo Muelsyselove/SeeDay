@@ -1,5 +1,14 @@
 # 更新记录
 
+## v1.2.0 - 2026-04-19
+### 项目初始化并推送到 GitHub 仓库
+- 清除旧的 git 仓库信息
+- 重新初始化 git 仓库，配置用户名为 `Muelsyselove`
+- 重命名默认分支为 `main`
+- 添加远程仓库 `https://github.com/Muelsyselove/SeeDay.git`
+- 创建初始提交，包含全部 135 个文件
+- 推送到 GitHub 仓库 `Muelsyselove/SeeDay`
+
 ## v1.1.2 - 2026-04-19
 ### 修复水墨主题左侧面板滚动条和元素遮挡问题
 - 将 `.ink-panel-left` 选择器添加 `[data-theme="inkwash"]` 前缀，确保样式在主题作用域内正确应用
