@@ -40,18 +40,25 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK components
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.5'
+      - name: Download gradle-wrapper.jar
+        run: |
+          mkdir -p agents/android-agent/gradle/wrapper
+          curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o agents/android-agent/gradle/wrapper/gradle-wrapper.jar
 
       - name: Build Debug APK
-        run: gradle -p agents/android-agent assembleDebug
+        working-directory: agents/android-agent
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
-        run: gradle -p agents/android-agent assembleRelease
+        working-directory: agents/android-agent
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
