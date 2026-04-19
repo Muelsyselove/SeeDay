@@ -7,6 +7,13 @@
 - **修复**：将检测方式从 `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` 改为 `AccessibilityManager.getEnabledAccessibilityServiceList()`，这是 Android 官方推荐的 API，在所有版本上均可正常工作
 - 移除不再需要的 `android.text.TextUtils` 和 `android.view.accessibility.AccessibilityManager` 导入（改为内联引用）
 
+### 修复 Android 14+ 启动监控闪退问题
+- **问题**：启动监控后应用闪退，报错 `SecurityException: Starting FGS with type connectedDevice`
+- **原因**：`MonitorService` 使用了 `foregroundServiceType="connectedDevice"`，但 Android 14（API 34）要求该类型必须同时拥有蓝牙/USB/NFC 等运行时权限，应用不具备这些权限
+- **修复**：将前台服务类型从 `connectedDevice` 改为 `dataSync`，该类型仅需 `FOREGROUND_SERVICE_DATA_SYNC` 权限，无需额外运行时权限
+- 在 `MonitorService.onCreate()` 中为 API 34+ 设备调用 `startForeground()` 时显式指定 `FOREGROUND_SERVICE_TYPE_DATA_SYNC`
+- 更新 `AndroidManifest.xml` 权限声明：`FOREGROUND_SERVICE_CONNECTED_DEVICE` → `FOREGROUND_SERVICE_DATA_SYNC`
+
 ## v1.5.0 - 2026-04-19
 ### 新增 Android Agent 应用
 - 新增独立 Android 项目 `packages/android-agent/`，使用 Kotlin 原生开发
