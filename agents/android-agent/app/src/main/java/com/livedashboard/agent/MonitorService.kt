@@ -87,7 +87,7 @@ class MonitorService : Service() {
         try {
             val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
-            val startTime = endTime - 5000
+            val startTime = endTime - 60000
             val events = usm.queryEvents(startTime, endTime)
             var lastApp = ""
             var lastClass = ""
@@ -101,6 +101,21 @@ class MonitorService : Service() {
             }
             if (lastApp.isNotEmpty() && lastApp != packageName) {
                 return Pair(lastApp, lastClass)
+            }
+        } catch (_: Exception) {
+        }
+
+        // Fallback: use queryUsageStats for more reliable detection
+        try {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val endTime = System.currentTimeMillis()
+            val startTime = endTime - 60000
+            val usageStatsList = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, startTime, endTime)
+            val foregroundStat = usageStatsList
+                .filter { it.packageName != packageName && it.lastTimeUsed > 0 }
+                .maxByOrNull { it.lastTimeUsed }
+            if (foregroundStat != null) {
+                return Pair(foregroundStat.packageName, "")
             }
         } catch (_: Exception) {
         }

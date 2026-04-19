@@ -24,6 +24,7 @@ class ApiClient(private val configManager: ConfigManager) {
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val pendingReports = mutableListOf<String>()
+    @Volatile
     private var lastReportTime: Long = 0
 
     suspend fun report(payloads: List<ReportPayload>, context: Context): Result<Unit> =
