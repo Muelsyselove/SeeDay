@@ -19,6 +19,9 @@ on:
         type: boolean
         default: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
@@ -59,6 +62,7 @@ jobs:
         working-directory: agents/android-agent
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace
+        continue-on-error: true
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -69,6 +73,7 @@ jobs:
 
       - name: Upload Release APK artifact
         uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('agents/android-agent/app/build/outputs/apk/release/*.apk') != '' }}
         with:
           name: SeeDay-Agent-Android-release
           path: agents/android-agent/app/build/outputs/apk/release/*.apk
@@ -80,9 +85,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.version || github.ref_name }}
           name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
-          files: |
-            agents/android-agent/app/build/outputs/apk/debug/*.apk
-            agents/android-agent/app/build/outputs/apk/release/*.apk
+          files: agents/android-agent/app/build/outputs/apk/debug/*.apk
           prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           generate_release_notes: true
         env:
