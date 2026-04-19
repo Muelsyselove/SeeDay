@@ -1,0 +1,33 @@
+[data-theme="huaxin"] {
+  --bg:          oklch(96.5% 0.012 65);
+  --bg-surface:  oklch(94% 0.015 58);
+  --border:      oklch(87% 0.02 55);
+  --border-soft: oklch(91% 0.015 55);
+  --ink:         oklch(22% 0.02 50);
+  --ink-secondary: oklch(45% 0.025 50);
+  --ink-muted:   oklch(62% 0.02 55);
+  --ink-faint:   oklch(75% 0.015 55);
+  --sakura:      oklch(68% 0.13 12);
+  --sakura-soft: oklch(78% 0.08 12);
+  --sakura-bg:   oklch(94% 0.03 12);
+  --sage:        oklch(68% 0.08 155);
+  --sage-soft:   oklch(78% 0.05 155);
+  --sage-bg:     oklch(94% 0.02 155);
+  --gold:        oklch(62% 0.11 70);
+  --gold-soft:   oklch(85% 0.05 70);
+
+  --text-xs:   clamp(0.65rem, 0.6rem + 0.2vw, 0.72rem);
+  --text-sm:   clamp(0.78rem, 0.72rem + 0.25vw, 0.85rem);
+  --text-base: clamp(0.92rem, 0.88rem + 0.2vw, 0.98rem);
+  --text-lg:   clamp(1.1rem, 0.95rem + 0.5vw, 1.28rem);
+  --text-xl:   clamp(1.4rem, 1.1rem + 1vw, 1.7rem);
+  --text-2xl:  clamp(1.7rem, 1.3rem + 1.3vw, 2.2rem);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  --font-display: "Fraunces", "Noto Serif SC", Georgia, serif;
+  --font-body: "Source Sans 3", "Noto Serif SC", system-ui, sans-serif;
+  --font-serif: "Noto Serif SC", "Fraunces", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}

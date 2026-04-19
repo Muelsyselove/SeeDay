@@ -1,0 +1,45 @@
+[data-theme="artistic"] {
+  /* 大胆艺术风格配色 - 深邃紫罗兰与电光青 */
+  --bg:          oklch(18% 0.03 290);
+  --bg-surface:  oklch(24% 0.04 285);
+  --border:      oklch(40% 0.08 280);
+  --border-soft: oklch(32% 0.05 282);
+
+  /* 文字色 - 高对比度确保可读性 */
+  --ink:         oklch(96% 0.01 85);
+  --ink-secondary: oklch(82% 0.02 80);
+  --ink-muted:   oklch(68% 0.03 75);
+  --ink-faint:   oklch(52% 0.04 70);
+
+  /* 主强调色 - 电光紫 */
+  --sakura:      oklch(65% 0.22 300);
+  --sakura-soft: oklch(72% 0.15 305);
+  --sakura-bg:   oklch(30% 0.08 295);
+
+  /* 辅助色 - 霓虹青 */
+  --sage:        oklch(75% 0.18 175);
+  --sage-soft:   oklch(82% 0.12 170);
+  --sage-bg:     oklch(28% 0.06 172);
+
+  /* 金色强调 - 暖橙金 */
+  --gold:        oklch(72% 0.16 65);
+  --gold-soft:   oklch(85% 0.08 70);
+
+  /* 字号 - 艺术风格使用更大胆的字号 */
+  --text-xs:   clamp(0.68rem, 0.62rem + 0.25vw, 0.75rem);
+  --text-sm:   clamp(0.82rem, 0.75rem + 0.3vw, 0.9rem);
+  --text-base: clamp(0.98rem, 0.9rem + 0.35vw, 1.05rem);
+  --text-lg:   clamp(1.2rem, 1rem + 0.8vw, 1.45rem);
+  --text-xl:   clamp(1.6rem, 1.2rem + 1.5vw, 2.1rem);
+  --text-2xl:  clamp(2rem, 1.5rem + 2vw, 2.8rem);
+
+  /* 动画曲线 - 更具戏剧性的缓动 */
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* 字体 - 艺术衬线体搭配现代无衬线 */
+  --font-display: "Playfair Display", "Noto Serif SC", Georgia, serif;
+  --font-body: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  --font-serif: "Playfair Display", "Noto Serif SC", Georgia, serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
+}

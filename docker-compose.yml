@@ -1,0 +1,32 @@
+services:
+  dashboard:
+    build: .
+    container_name: live_dashboard
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PORT=3000
+      - STATIC_DIR=/app/public
+      - DB_PATH=/data/live-dashboard.db
+      - DEVICE_TOKEN_1=${DEVICE_TOKEN_1}
+      - DEVICE_TOKEN_2=${DEVICE_TOKEN_2}
+      - HASH_SECRET=${HASH_SECRET}
+      - DISPLAY_NAME=${DISPLAY_NAME}
+      - SITE_TITLE=${SITE_TITLE}
+      - SITE_DESC=${SITE_DESC}
+      - SITE_FAVICON=${SITE_FAVICON}
+      - AI_API_URL=${AI_API_URL}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_MODEL=${AI_MODEL}
+    volumes:
+      - dashboard_data:/data
+    mem_limit: 256m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dashboard_data:

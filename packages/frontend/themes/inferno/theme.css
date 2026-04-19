@@ -1,0 +1,237 @@
+/* ════════════════════════════════════════
+   烈焰 · Inferno
+   深邃炭黑 + 炽热红橙，带有脉冲光晕和渐变流动
+   ════════════════════════════════════════ */
+
+[data-theme="inferno"] {
+  /* ── Colors ── */
+  --bg:          oklch(10% 0.04 30);
+  --bg-surface:  oklch(16% 0.06 25);
+  --border:      oklch(45% 0.15 35);
+  --border-soft: oklch(30% 0.1 30);
+  --ink:         oklch(97% 0.01 85);
+  --ink-secondary: oklch(88% 0.03 75);
+  --ink-muted:   oklch(70% 0.05 60);
+  --ink-faint:   oklch(55% 0.06 45);
+  --sakura:      oklch(65% 0.28 25);
+  --sakura-soft: oklch(75% 0.2 30);
+  --sakura-bg:   oklch(22% 0.1 28);
+  --sage:        oklch(72% 0.22 50);
+  --sage-soft:   oklch(85% 0.14 55);
+  --sage-bg:     oklch(20% 0.08 45);
+  --gold:        oklch(80% 0.2 60);
+  --gold-soft:   oklch(90% 0.12 65);
+
+  /* ── Typography — 大幅放大 ── */
+  --text-xs:   clamp(0.8rem, 0.72rem + 0.35vw, 0.92rem);
+  --text-sm:   clamp(0.98rem, 0.88rem + 0.4vw, 1.12rem);
+  --text-base: clamp(1.15rem, 1.02rem + 0.55vw, 1.35rem);
+  --text-lg:   clamp(1.6rem, 1.2rem + 1.5vw, 2rem);
+  --text-xl:   clamp(2.2rem, 1.5rem + 2.2vw, 3rem);
+  --text-2xl:  clamp(2.8rem, 1.8rem + 3.2vw, 4rem);
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-quart: cubic-bezier(0.3, 1, 0.6, 1);
+
+  --font-display: "Playfair Display", "Noto Serif SC", Georgia, serif;
+  --font-body: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  --font-serif: "Playfair Display", "Noto Serif SC", Georgia, serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
+}
+
+/* ── 背景渐变动画 ── */
+[data-theme="inferno"] body {
+  background: linear-gradient(
+    135deg,
+    oklch(10% 0.04 30) 0%,
+    oklch(14% 0.08 28) 25%,
+    oklch(10% 0.04 30) 50%,
+    oklch(13% 0.06 35) 75%,
+    oklch(10% 0.04 30) 100%
+  );
+  background-size: 400% 400%;
+  animation: inferno-bg-shift 12s ease infinite;
+}
+
+@keyframes inferno-bg-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── 面板呼吸光晕 ── */
+[data-theme="inferno"] .panel-left,
+[data-theme="inferno"] .tl-scroll {
+  box-shadow:
+    0 0 30px rgba(255, 80, 40, 0.08),
+    0 0 60px rgba(255, 60, 30, 0.04);
+  animation: inferno-panel-glow 4s ease-in-out infinite alternate;
+}
+
+@keyframes inferno-panel-glow {
+  0% {
+    box-shadow:
+      0 0 20px rgba(255, 80, 40, 0.06),
+      0 0 40px rgba(255, 60, 30, 0.03);
+  }
+  100% {
+    box-shadow:
+      0 0 40px rgba(255, 80, 40, 0.12),
+      0 0 80px rgba(255, 60, 30, 0.06);
+  }
+}
+
+/* ── 强调色脉冲 ── */
+[data-theme="inferno"] .site-title,
+[data-theme="inferno"] .hero-app {
+  background: linear-gradient(90deg,
+    oklch(65% 0.28 25),
+    oklch(75% 0.22 35),
+    oklch(80% 0.2 60),
+    oklch(75% 0.22 35),
+    oklch(65% 0.28 25)
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: inferno-text-flow 4s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 100, 50, 0.3));
+}
+
+@keyframes inferno-text-flow {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ── 状态点脉冲 ── */
+[data-theme="inferno"] .status-dot {
+  animation: inferno-pulse 2s ease-in-out infinite;
+}
+
+@keyframes inferno-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 80, 40, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 80, 40, 0);
+  }
+}
+
+/* ── 滚动条火焰效果 ── */
+[data-theme="inferno"] .panel-left::-webkit-scrollbar-thumb,
+[data-theme="inferno"] .tl-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg,
+    oklch(65% 0.28 25),
+    oklch(75% 0.22 35),
+    oklch(80% 0.2 60)
+  );
+  border-radius: 4px;
+}
+
+/* ── 时间轴当前项高亮 ── */
+[data-theme="inferno"] .tl-app-active .tl-app-dot {
+  animation: inferno-dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes inferno-dot-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px oklch(65% 0.28 25), 0 0 8px oklch(65% 0.28 25);
+  }
+  50% {
+    box-shadow: 0 0 8px oklch(75% 0.22 35), 0 0 16px oklch(75% 0.22 35), 0 0 24px oklch(80% 0.2 60);
+  }
+}
+
+/* ── 按钮悬停火焰边框 ── */
+[data-theme="inferno"] .theme-btn {
+  border-color: oklch(45% 0.15 35);
+  transition: all 0.3s var(--ease-out-quart);
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="inferno"] .theme-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent,
+    oklch(65% 0.28 25),
+    oklch(80% 0.2 60),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: inferno-btn-sweep 3s linear infinite;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+[data-theme="inferno"] .theme-btn:hover::before {
+  opacity: 0.3;
+}
+
+[data-theme="inferno"] .theme-btn:hover {
+  border-color: oklch(65% 0.28 25);
+  box-shadow: 0 0 12px rgba(255, 80, 40, 0.3);
+}
+
+@keyframes inferno-btn-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── 设备按钮火焰指示 ── */
+[data-theme="inferno"] .dev-btn-active {
+  border-color: oklch(65% 0.28 25);
+  box-shadow: 0 0 8px rgba(255, 80, 40, 0.2);
+  animation: inferno-dev-glow 3s ease-in-out infinite alternate;
+}
+
+@keyframes inferno-dev-glow {
+  0% { box-shadow: 0 0 6px rgba(255, 80, 40, 0.15); }
+  100% { box-shadow: 0 0 16px rgba(255, 80, 40, 0.35), 0 0 32px rgba(255, 60, 30, 0.15); }
+}
+
+/* ── 音乐条动画 ── */
+[data-theme="inferno"] .m-bar {
+  background: linear-gradient(180deg,
+    oklch(65% 0.28 25),
+    oklch(80% 0.2 60)
+  );
+  animation: inferno-music-bar 1.2s ease-in-out infinite alternate;
+}
+
+[data-theme="inferno"] .m-bar:nth-child(2) { animation-delay: 0.2s; }
+[data-theme="inferno"] .m-bar:nth-child(3) { animation-delay: 0.4s; }
+[data-theme="inferno"] .m-bar:nth-child(4) { animation-delay: 0.6s; }
+
+@keyframes inferno-music-bar {
+  0% { height: 30%; }
+  100% { height: 100%; }
+}
+
+/* ── 花瓣变为火星 ── */
+[data-theme="inferno"] .petal-container .petal {
+  background: radial-gradient(circle, oklch(65% 0.28 25) 0%, transparent 70%);
+  border-radius: 50%;
+  width: 4px !important;
+  height: 4px !important;
+  animation: inferno-spark 3s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+[data-theme="inferno"] .petal-container .petal:nth-child(odd) {
+  background: radial-gradient(circle, oklch(80% 0.2 60) 0%, transparent 70%);
+}
+
+@keyframes inferno-spark {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-30px) scale(1.5);
+    opacity: 1;
+  }
+}
