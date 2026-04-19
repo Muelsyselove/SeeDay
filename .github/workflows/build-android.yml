@@ -37,35 +37,26 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Check Android SDK environment
+      - name: Install Android SDK platform and build tools
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls -la "$ANDROID_HOME/cmdline-tools/" 2>/dev/null || echo "No cmdline-tools"
-          ls -la "$ANDROID_HOME/platforms/" 2>/dev/null || echo "No platforms"
-          ls -la "$ANDROID_HOME/build-tools/" 2>/dev/null || echo "No build-tools"
-          which sdkmanager 2>/dev/null || echo "sdkmanager not in PATH"
-
-      - name: Accept SDK licenses
-        run: |
-          yes | sdkmanager --licenses || true
-
-      - name: Install Android SDK components
-        run: |
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" || true
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
       - name: Generate Gradle wrapper
         run: |
           cd agents/android-agent
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            gradle wrapper --gradle-version 8.5
+            mkdir -p gradle/wrapper
+            gradle wrapper --gradle-version 8.5 2>&1 || {
+              curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
+            }
           fi
 
       - name: Build Debug APK
         working-directory: agents/android-agent
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -200
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
         working-directory: agents/android-agent
