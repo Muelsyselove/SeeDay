@@ -25,6 +25,9 @@ permissions:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout code
@@ -37,19 +40,20 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Install Android SDK platform and build tools
+      - name: Accept SDK licenses
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+      - name: Install Android SDK components
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" || true
 
       - name: Generate Gradle wrapper
         run: |
           cd agents/android-agent
           if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
             mkdir -p gradle/wrapper
-            gradle wrapper --gradle-version 8.5 2>&1 || {
-              curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
-            }
+            curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
           fi
 
       - name: Build Debug APK
