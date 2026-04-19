@@ -1,5 +1,13 @@
 # 更新记录
 
+## v1.5.6 - 2026-04-20
+### 修复 HTTPS 连接被重置问题
+- OkHttpClient 添加 `ConnectionSpec` 配置，支持 TLS 1.2 和 TLS 1.3
+- 添加 `ConnectionSpec.COMPATIBLE_TLS` 作为兼容回退
+- 启用 `retryOnConnectionFailure(true)`，连接失败时自动重试
+- 异常信息包含完整类名（如 `ConnectException: ...`、`SSLException: ...`），便于诊断
+- 更新 `versionCode` 为 6，`versionName` 为 "1.5.6"
+
 ## v1.5.5 - 2026-04-20
 ### 添加详细调试日志，排查上报失败问题
 - `performReport()` 在检测不到前台应用时，通知栏显示无障碍服务状态和包名信息

@@ -10,6 +10,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.ConnectionSpec
+import okhttp3.TlsVersion
 import java.util.concurrent.TimeUnit
 
 class ApiClient(private val configManager: ConfigManager) {
@@ -18,6 +20,13 @@ class ApiClient(private val configManager: ConfigManager) {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
+        .connectionSpecs(listOf(
+            ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+                .tlsVersions(TlsVersion.TLS_1_2, TlsVersion.TLS_1_3)
+                .build(),
+            ConnectionSpec.COMPATIBLE_TLS
+        ))
+        .retryOnConnectionFailure(true)
         .build()
 
     private val gson = Gson()
@@ -76,7 +85,8 @@ class ApiClient(private val configManager: ConfigManager) {
             } catch (e: Exception) {
                 val jsonBody = buildCacheJson(payloads)
                 cacheReport(jsonBody)
-                Result.failure(e)
+                val detail = "${e.javaClass.simpleName}: ${e.message}"
+                Result.failure(Exception(detail, e))
             }
         }
 
