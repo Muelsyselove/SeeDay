@@ -200,19 +200,11 @@ export function handleTimeline(url: URL): Response {
 
     const runningApps = runningAppsByDevice.get(deviceId) || new Set<string>();
 
-    const localDate = new Date(date + 'T00:00:00');
-    const localOffset = localDate.getTimezoneOffset() * 60 * 1000;
-
-    let targetDateStart = new Date(localDate.getTime() - localOffset);
-    targetDateStart.setHours(0, 0, 0, 0);
-
-    let targetDateEnd = new Date(localDate.getTime() - localOffset);
-    targetDateEnd.setHours(23, 59, 59, 999);
-
-    if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
-      targetDateStart = new Date(targetDateStart.getTime() + tzOffsetMinutes * 60 * 1000);
-      targetDateEnd = new Date(targetDateEnd.getTime() + tzOffsetMinutes * 60 * 1000);
-    }
+    // started_at is stored as device local time string (e.g. "2026-04-20 21:30:00")
+    // new Date() on UTC server parses it as UTC, so we compare in UTC directly
+    // The date param is the user's local date, we treat it as UTC for comparison
+    let targetDateStart = new Date(date + 'T00:00:00');
+    let targetDateEnd = new Date(date + 'T23:59:59');
 
     const loopNow = new Date();
     const isToday = loopNow >= targetDateStart && loopNow <= targetDateEnd;
