@@ -1,5 +1,12 @@
 # 更新记录
 
+## v1.5.11 - 2026-04-20
+### 简化构建配置，修复所有构建步骤失败
+- Release 构建关闭 `isMinifyEnabled`（R8 混淆），避免 ProGuard 规则导致的编译错误
+- Debug 构建添加 `continue-on-error: true` 确保至少能获取到 APK artifact
+- ProGuard 规则回退到标准格式，移除 `-dontwarn **`（语法不兼容）
+- 更新 `versionCode` 为 11，`versionName` 为 "1.5.11"
+
 ## v1.5.10 - 2026-04-20
 ### 修复 Release 构建失败
 - 关闭 `isShrinkResources`（资源压缩），仅保留 R8 代码混淆

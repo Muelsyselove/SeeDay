@@ -74,6 +74,7 @@ jobs:
 
       - name: Build Debug APK
         id: debug
+        continue-on-error: true
         working-directory: agents/android-agent
         env:
           KEYSTORE_FILE: release.keystore

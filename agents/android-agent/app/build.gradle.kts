@@ -11,8 +11,8 @@ android {
         applicationId = "com.livedashboard.agent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.5.10"
+        versionCode = 11
+        versionName = "1.5.11"
     }
 
     val ksFile = System.getenv("KEYSTORE_FILE")
@@ -34,12 +34,8 @@ android {
             }
         }
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             isShrinkResources = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
             if (ksFile != null) {
                 signingConfig = signingConfigs.getByName("release")
             }
