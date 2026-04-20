@@ -38,9 +38,9 @@ export async function handleReport(req: Request): Promise<Response> {
     return Response.json({ error: "Inconsistent array lengths" }, { status: 400 });
   }
 
-  // Validate timestamp format: 年;月;日;xx:xx
-  // Agent sends local time, we store it as local datetime string for SQLite
-  // This avoids timezone conversion issues
+  // Parse timestamp: "2026;4;20;20:08" (device local time)
+  // We store it directly as the local datetime string (as the device sees it)
+  // This keeps backward compatibility with existing data
   let startedAt: string;
   if (typeof body.timestamp === "string" && body.timestamp) {
     const parts = body.timestamp.split(";").map((s: string) => s.trim());
@@ -49,14 +49,7 @@ export async function handleReport(req: Request): Promise<Response> {
       const timeParts = time.split(":");
       if (timeParts.length === 2) {
         const [hour, minute] = timeParts;
-        const localTs = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-        if (!isNaN(localTs.getTime())) {
-          // Format as local datetime string for SQLite (YYYY-MM-DD HH:MM:SS)
-          const localStr = `${String(localTs.getFullYear()).padStart(4, '0')}-${String(localTs.getMonth() + 1).padStart(2, '0')}-${String(localTs.getDate()).padStart(2, '0')} ${String(localTs.getHours()).padStart(2, '0')}:${String(localTs.getMinutes()).padStart(2, '0')}:${String(localTs.getSeconds()).padStart(2, '0')}`;
-          startedAt = localStr;
-        } else {
-          startedAt = toLocalDatetimeStr(new Date());
-        }
+        startedAt = `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
       } else {
         startedAt = toLocalDatetimeStr(new Date());
       }

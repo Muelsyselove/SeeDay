@@ -48,6 +48,7 @@ class ApiClient(private val configManager: ConfigManager) {
                 val windowTitles = payloads.joinToString(";;") { it.windowTitle }
                 val isForegrounds = payloads.joinToString(";;") { if (it.isForeground) "1" else "0" }
                 val timestamp = payloads.firstOrNull()?.timestamp ?: formatTimestamp()
+                val tzOffset = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60000
 
                 val extraObj = mutableMapOf<String, Any>()
                 val firstPayload = payloads.firstOrNull()
@@ -59,6 +60,7 @@ class ApiClient(private val configManager: ConfigManager) {
                     "window_title" to windowTitles,
                     "is_foreground" to isForegrounds,
                     "timestamp" to timestamp,
+                    "tz" to tzOffset,
                     "extra" to extraObj
                 )
 
@@ -117,6 +119,7 @@ class ApiClient(private val configManager: ConfigManager) {
         val windowTitles = payloads.joinToString(";;") { it.windowTitle }
         val isForegrounds = payloads.joinToString(";;") { if (it.isForeground) "1" else "0" }
         val timestamp = payloads.firstOrNull()?.timestamp ?: formatTimestamp()
+        val tzOffset = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60000
         val extraObj = mutableMapOf<String, Any>()
         val firstPayload = payloads.firstOrNull()
         firstPayload?.extra?.batteryPercent?.let { extraObj["battery_percent"] = it }
@@ -126,6 +129,7 @@ class ApiClient(private val configManager: ConfigManager) {
             "window_title" to windowTitles,
             "is_foreground" to isForegrounds,
             "timestamp" to timestamp,
+            "tz" to tzOffset,
             "extra" to extraObj
         )
         return gson.toJson(bodyMap)
