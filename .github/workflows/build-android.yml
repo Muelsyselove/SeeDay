@@ -95,7 +95,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace || true
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload Debug APK artifact
         if: always()
@@ -106,7 +106,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Release APK artifact
-        if: steps.release.outcome == 'success'
+        if: steps.release.outcome == 'success' && hashFiles('agents/android-agent/app/build/outputs/apk/release/*.apk') != ''
         uses: actions/upload-artifact@v4
         with:
           name: SeeDay-Agent-Android-release

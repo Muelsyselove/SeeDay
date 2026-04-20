@@ -1,5 +1,13 @@
 # 更新记录
 
+## v1.5.10 - 2026-04-20
+### 修复 Release 构建失败
+- 关闭 `isShrinkResources`（资源压缩），仅保留 R8 代码混淆
+- ProGuard 规则改为完全保留模式：保留所有 androidx/android/okhttp/gson/kotlin 类
+- 添加 `-dontwarn **` 忽略所有警告
+- `assembleRelease` 移除 `|| true`，保留 `continue-on-error: true` 确保不阻塞 Debug 输出
+- 更新 `versionCode` 为 10，`versionName` 为 "1.5.10"
+
 ## v1.5.9 - 2026-04-20
 ### 修复 CI 构建问题
 - 将 `actions/upload-artifact` 从 v5 降级为 v4（Node 24 兼容性问题）
