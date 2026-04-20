@@ -11,8 +11,8 @@ android {
         applicationId = "com.livedashboard.agent"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "1.5.11"
+        versionCode = 12
+        versionName = "1.5.12"
     }
 
     val ksFile = System.getenv("KEYSTORE_FILE")

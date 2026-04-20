@@ -81,7 +81,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="说明：\n• 服务器地址格式：https://domain 或 http://ip:port\n• 设备 Token 在服务器环境变量中配置\n• 上报间隔最少 10 秒\n• 开启监控前需先在系统设置中启用无障碍服务\n• 点击"测试连接"可验证服务器是否可达"
+            android:text="说明：\n• 服务器地址格式：https://domain 或 http://ip:port\n• 设备 Token 在服务器环境变量中配置\n• 上报间隔最少 10 秒\n• 开启监控前需先在系统设置中启用无障碍服务\n• 点击测试连接可验证服务器是否可达"
             android:textSize="13sp"
             android:textColor="?android:attr/textColorSecondary"
             android:lineSpacingExtra="4dp" />

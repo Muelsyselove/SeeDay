@@ -1,5 +1,11 @@
 # 更新记录
 
+## v1.5.12 - 2026-04-20
+### 修复 XML 编译错误导致构建完全失败
+- `activity_settings.xml` 中 `android:text` 属性内使用了中文引号 `"` 而非转义，导致 XML 解析失败
+- 移除 `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` 环境变量（GitHub Actions 已默认 Node 24）
+- 更新 `versionCode` 为 12，`versionName` 为 "1.5.12"
+
 ## v1.5.11 - 2026-04-20
 ### 简化构建配置，修复所有构建步骤失败
 - Release 构建关闭 `isMinifyEnabled`（R8 混淆），避免 ProGuard 规则导致的编译错误
