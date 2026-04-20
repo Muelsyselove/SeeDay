@@ -1,5 +1,13 @@
 # 更新记录
 
+## v1.5.9 - 2026-04-20
+### 修复 CI 构建问题
+- 将 `actions/upload-artifact` 从 v5 降级为 v4（Node 24 兼容性问题）
+- Debug APK 路径改为精确路径 `app-debug.apk` 而非 glob 匹配
+- Release 构建添加 `continue-on-error: true`，避免阻塞 Debug APK 输出
+- Create Release 只发布 Debug APK
+- 更新 `versionCode` 为 9，`versionName` 为 "1.5.9"
+
 ## v1.5.8 - 2026-04-20
 ### 修复 Release 构建失败
 - `SettingsActivity` 中 `java.net.URL` 改为 `java.net.URI`，避免 R8 编译报错

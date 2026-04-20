@@ -73,6 +73,7 @@ jobs:
           keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" || echo "Alias not found! Please update KEY_ALIAS secret to match one of the aliases listed above."
 
       - name: Build Debug APK
+        id: debug
         working-directory: agents/android-agent
         env:
           KEYSTORE_FILE: release.keystore
@@ -81,9 +82,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -100
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Build Release APK
+        if: always() && steps.debug.outcome == 'success'
+        id: release
+        continue-on-error: true
         working-directory: agents/android-agent
         env:
           KEYSTORE_FILE: release.keystore
@@ -91,19 +95,19 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace || true
 
       - name: Upload Debug APK artifact
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: SeeDay-Agent-Android-debug
-          path: agents/android-agent/app/build/outputs/apk/debug/*.apk
+          path: agents/android-agent/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Upload Release APK artifact
-        uses: actions/upload-artifact@v5
-        if: ${{ hashFiles('agents/android-agent/app/build/outputs/apk/release/*.apk') != '' }}
+        if: steps.release.outcome == 'success'
+        uses: actions/upload-artifact@v4
         with:
           name: SeeDay-Agent-Android-release
           path: agents/android-agent/app/build/outputs/apk/release/*.apk
@@ -115,9 +119,7 @@ jobs:
         with:
           tag: ${{ github.event.inputs.version || github.ref_name }}
           name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
-          artifacts: |
-            agents/android-agent/app/build/outputs/apk/debug/*.apk
-            agents/android-agent/app/build/outputs/apk/release/*.apk
+          artifacts: agents/android-agent/app/build/outputs/apk/debug/app-debug.apk
           prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           generateReleaseNotes: true
           omitBody: true
