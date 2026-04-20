@@ -1,5 +1,49 @@
 # 更新记录
 
+## v1.6.0 - 2026-04-20
+### 修复隐私分级双键匹配，扩展 Android 应用支持
+- **修复隐私分级双键匹配**：`getPrivacyTier()` 新增可选参数 `appId`，支持同时按应用名称和应用ID匹配隐私分级。当 `appName` 未匹配到分级时，会尝试用 `appId`（如 Android 包名）再次查找
+- **修复 `processDisplayTitle()` 传递 appId**：`processDisplayTitle()` 新增可选参数 `appId`，并将其传递给 `getPrivacyTier()`，确保 Android 设备上报时能通过包名正确匹配隐私分级
+- **修复 `report.ts` 传递 appId**：在调用 `processDisplayTitle()` 时传入 `appId` 参数，使 Android 上报的包名能参与隐私分级判断
+- **新增 Android 包名隐私分级注册**：在 `privacy-tiers.ts` 中新增 12 组 Android 包名分级注册，覆盖：
+  - HIDE：消息类（微信、QQ、Telegram、Discord 等）、AI 助手类（ChatGPT、Claude、Gemini 等）、邮箱类、系统类、购物/服务类、社交类、代理类
+  - BROWSER：浏览器类（Chrome、Firefox、Edge、Brave、Vivaldi）
+  - SHOW：视频类（哔哩哔哩、YouTube）、音乐类（网易云音乐、酷狗、QQ音乐、Spotify）、游戏类（王者荣耀、原神、崩坏等）、IDE 类（Trebedit、AIDE）
+- **扩展 Android 应用名称映射**：在 `app-names.json` 的 `android` 部分新增 99 个包名映射，覆盖邮箱、办公、浏览器、出行、美食、教育、应用商店、系统启动器、音乐、视频、阅读、工具等类别
+
+### Windows Agent 效率模式进程检测
+- **新增 `_KNOWN_BACKGROUND_PROCESSES` 集合**：包含微信、QQ、Telegram、Discord、飞书、钉钉、Skype、Slack、Teams、Zoom 及常用音乐播放器等 20 个进程名
+- **新增 `get_running_background_processes()` 函数**：使用 `psutil.process_iter()` 扫描已知后台进程，即使进程被 Windows 效率模式挂起（无可见窗口）也能检测到
+- **修改 `get_background_apps()` 函数**：合并 `EnumWindows` 窗口枚举结果和 `psutil` 进程扫描结果，按 `app_id` 去重
+
+### Android Agent 屏幕亮灭检测与息屏离线
+- **ReportPayload.kt**：`ExtraInfo` 数据类新增 `screenOn: Boolean? = null` 字段
+- **MonitorService.kt**：新增 `isScreenOn()` 方法，通过 `PowerManager.isInteractive` 检测屏幕是否亮起
+- **MonitorService.kt**：`performReport()` 中构建 `ExtraInfo` 时调用 `isScreenOn()` 传入屏幕状态
+- **ApiClient.kt**：`report()` 和 `buildCacheJson()` 方法中 `extraObj` 新增 `screen_on` 字段序列化
+- **db.ts**：`device_states` 表新增 `screen_on INTEGER DEFAULT 1` 列，CREATE TABLE 和 ALTER TABLE 迁移均已添加
+- **db.ts**：`upsertDeviceState` 预编译语句新增 `screen_on` 字段的 INSERT 和 UPDATE
+- **db.ts**：`markOfflineDevices` 新增条件：Android 设备 `screen_on = 0` 时标记为离线
+- **report.ts**：解析 `body.extra.screen_on`，计算 `screenOnValue`（true→1, false→0, 未提供→1），传入 `upsertDeviceState.run()`
+- **types.ts**：`DeviceState` 接口新增 `screen_on?: number` 字段
+
+### 重构 GitHub Actions 工作流，分离构建与发布
+- **新建 `release.yml`**：合并 Android + Windows 构建的统一发布工作流
+  - 触发条件：`push tags: v*` 或 `workflow_dispatch`（支持手动指定版本号和预发布标记）
+  - 三个 Job：`build-android`、`build-windows`（并行）、`create-release`（依赖前两者）
+  - Android 构建包含 Keystore 解码、Debug/Release APK 构建、Artifact 上传
+  - Windows 构建包含 Python 依赖安装、PyInstaller 打包、Artifact 上传
+  - `create-release` 下载所有 Artifact，使用 `ncipollo/release-action` 创建 GitHub Release
+  - Release 包含 Debug APK、Release APK、Windows EXE 三个产物
+- **修改 `build-android.yml`**：简化为纯测试构建工作流，仅 `workflow_dispatch` 触发，移除 Release 步骤
+- **修改 `build-windows.yml`**：简化为纯测试构建工作流，仅 `workflow_dispatch` 触发，移除 Release 步骤
+
+## v1.5.13 - 2026-04-20
+### Windows Agent 效率模式进程检测
+- 新增 `_KNOWN_BACKGROUND_PROCESSES` 集合，包含已知的后台运行进程名（微信、Telegram、Discord、QQ、飞书、钉钉、Skype、Slack、Teams、Zoom、Spotify、网易云音乐、QQ音乐、酷狗、酷我等）
+- 新增 `get_running_background_processes()` 函数，使用 psutil 扫描运行中的进程，查找已知后台应用（可能被 Windows 效率模式隐藏窗口的应用）
+- 修改 `get_background_apps()` 函数，在返回结果前合并 psutil 扫描结果，将窗口枚举未发现的后台进程补充到结果列表中
+
 ## v1.5.13 - 2026-04-20
 ### 修复时间轴历史数据消失问题
 - **问题**：重建 Docker 容器时使用了错误的 volume 名称（`dashboard_data` 而非 `live-dashboard_dashboard_data`），导致历史数据丢失

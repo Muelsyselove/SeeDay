@@ -1,23 +1,12 @@
 name: Build Android Agent APK
 
 on:
-  push:
-    tags:
-      - 'v*'
-    paths:
-      - 'agents/android-agent/**'
-      - '.github/workflows/build-android.yml'
   workflow_dispatch:
     inputs:
       version:
         description: '版本号 (例如: v0.1.0)'
         required: false
         type: string
-      prerelease:
-        description: '是否为预发布版本'
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -48,12 +37,6 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" || true
 
-      - name: Decode Keystore
-        run: |
-          printf '%s' "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > agents/android-agent/release.keystore
-          ls -la agents/android-agent/release.keystore
-          file agents/android-agent/release.keystore
-
       - name: Generate Gradle wrapper
         run: |
           cd agents/android-agent
@@ -62,24 +45,10 @@ jobs:
             curl -fSL "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar" -o gradle/wrapper/gradle-wrapper.jar
           fi
 
-      - name: Verify Keystore
-        working-directory: agents/android-agent
-        run: |
-          echo "Available aliases in keystore:"
-          keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>&1 | head -20
-          echo "---"
-          echo "Checking alias '${{ secrets.KEY_ALIAS }}':"
-          keytool -list -keystore release.keystore -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" || echo "Alias not found! Please update KEY_ALIAS secret to match one of the aliases listed above."
-
       - name: Build Debug APK
         id: debug
         continue-on-error: true
         working-directory: agents/android-agent
-        env:
-          KEYSTORE_FILE: release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
@@ -89,11 +58,6 @@ jobs:
         id: release
         continue-on-error: true
         working-directory: agents/android-agent
-        env:
-          KEYSTORE_FILE: release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew assembleRelease --no-daemon --stacktrace
 
@@ -112,16 +76,3 @@ jobs:
           name: SeeDay-Agent-Android-release
           path: agents/android-agent/app/build/outputs/apk/release/*.apk
           retention-days: 30
-
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ github.event.inputs.version || github.ref_name }}
-          name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
-          artifacts: agents/android-agent/app/build/outputs/apk/debug/app-debug.apk
-          prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
-          generateReleaseNotes: true
-          omitBody: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

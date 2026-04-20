@@ -125,6 +125,75 @@ registerTier("browser", [
   "Brave", "Vivaldi", "Opera GX",
 ]);
 
+registerTier("hide", [
+  "com.tencent.mm", "com.tencent.mobileqq", "com.tencent.tim",
+  "org.telegram.messenger", "com.discord", "com.tencent.wework",
+  "com.alibaba.android.rimet", "com.skype.raider", "com.slack",
+  "com.feishu.conference", "com.ss.android.lark",
+]);
+
+registerTier("hide", [
+  "com.openai.chatgpt", "com.anthropic.claude", "com.google.android.apps.bard",
+  "com.moonshot.kimichat", "com.larus.nova", "com.deepseek.chat",
+]);
+
+registerTier("hide", [
+  "com.tencent.androidqqmail", "com.netease.mail",
+  "com.gmail", "com.microsoft.office.outlook",
+]);
+
+registerTier("hide", [
+  "com.android.systemui", "com.android.settings", "com.miui.securitycenter",
+  "com.xiaomi.misettings", "com.android.camera", "com.miui.gallery",
+  "com.android.fileexplorer", "com.miui.calculator", "com.android.calendar",
+  "com.android.deskclock", "com.miui.weather2", "com.miui.notes",
+  "com.miui.barcodescanner", "com.miui.voiceassist", "com.android.providers.downloads.ui",
+]);
+
+registerTier("hide", [
+  "com.taobao.taobao", "com.jingdong.app.mall", "com.xunmeng.pinduoduo",
+  "com.eg.android.AlipayGphone", "com.sankuai.meituan", "me.ele.crowdsource",
+  "com.dianping.v1", "com.MobileTicket", "com.ctrip.ticket",
+  "com.taobao.idlefish", "com.achievo.vipshop",
+]);
+
+registerTier("hide", [
+  "com.ss.android.ugc.aweme", "com.sina.weibo", "com.zhihu.android",
+  "com.xiaohongshu.discover", "com.ss.android.article.news",
+  "com.smile.gifmaker", "com.kuaishou.nebula",
+  "com.instagram.android", "com.facebook.katana", "com.twitter.android",
+  "com.reddit.frontpage", "com.coolapk.market",
+]);
+
+registerTier("hide", [
+  "com.github.kr328.clash", "com.v2ray.ang",
+]);
+
+registerTier("browser", [
+  "com.android.chrome", "org.mozilla.firefox", "com.microsoft.emmx",
+  "com.brave.browser", "com.vivaldi.browser",
+]);
+
+registerTier("show", [
+  "tv.danmaku.bili", "com.bilibili.app.in", "tv.danmaku.bilibilihd",
+  "com.google.android.youtube",
+]);
+
+registerTier("show", [
+  "com.netease.cloudmusic", "com.kugou.android", "com.tencent.qqmusic",
+  "com.spotify.music", "com.kugou.android.lite", "com.tencent.karaoke",
+]);
+
+registerTier("show", [
+  "com.tencent.tmgp.sgame", "com.tencent.ig", "com.miHoYo.Yuanshen",
+  "com.miHoYo.hkrpg", "com.miHoYo.zzz", "com.kurogame.wutheringwaves",
+  "com.hypergryph.arknights",
+]);
+
+registerTier("show", [
+  "com.teejay.trebedit", "com.aide.ui",
+]);
+
 // HIDE — messaging
 registerTier("hide", [
   "Telegram", "QQ", "TIM", "微信", "WeChat",
@@ -198,12 +267,17 @@ registerTier("hide", [
 
 // ── Public API ──
 
-export function getPrivacyTier(appName: string): PrivacyTier {
-  if (!appName) return "hide";
-  // Default to "show" for unknown apps (e.g. games, galgame executables).
-  // All sensitive categories (chat, email, finance, system, proxy, social)
-  // are explicitly registered as "hide" above.
-  return tierMap.get(appName.toLowerCase()) ?? "show";
+export function getPrivacyTier(appName: string, appId?: string): PrivacyTier {
+  if (!appName && !appId) return "hide";
+  if (appName) {
+    const tier = tierMap.get(appName.toLowerCase());
+    if (tier) return tier;
+  }
+  if (appId) {
+    const tier = tierMap.get(appId.toLowerCase());
+    if (tier) return tier;
+  }
+  return "show";
 }
 
 // ── Browser suffix patterns (order matters — try longest first) ──
@@ -483,10 +557,10 @@ const designApps = new Set([
  * Generate a safe display_title from app_name + window_title.
  * Returns empty string if the title should be hidden.
  */
-export function processDisplayTitle(appName: string, windowTitle: string): string {
+export function processDisplayTitle(appName: string, windowTitle: string, appId?: string): string {
   if (!appName || !windowTitle) return "";
 
-  const tier = getPrivacyTier(appName);
+  const tier = getPrivacyTier(appName, appId);
   const lowerApp = appName.toLowerCase();
 
   if (tier === "hide") {

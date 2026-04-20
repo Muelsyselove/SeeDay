@@ -435,6 +435,15 @@ _BACKGROUND_APP_BLACKLIST = {
     "shellhost.exe",
 }
 
+_KNOWN_BACKGROUND_PROCESSES = {
+    "wechat.exe", "weixin.exe", "telegram.exe", "discord.exe",
+    "qq.exe", "tim.exe", "feishu.exe", "lark.exe",
+    "dingtalk.exe", "skype.exe", "slack.exe",
+    "msteams.exe", "ms-teams.exe", "zoom.exe",
+    "spotify.exe", "netease_cloudmusic.exe", "cloudmusic.exe",
+    "qqmusic.exe", "kugou.exe", "kwmusic.exe",
+}
+
 
 def get_background_apps() -> list[dict]:
     """Return list of background applications with their info."""
@@ -503,7 +512,40 @@ def get_background_apps() -> list[dict]:
         import traceback
         log.error(traceback.format_exc())
 
+    psutil_apps = get_running_background_processes()
+    existing_pids = set()
+    for app in background_apps:
+        existing_pids.add(app["app_id"].lower())
+
+    for app in psutil_apps:
+        if app["app_id"].lower() not in existing_pids:
+            background_apps.append(app)
+            existing_pids.add(app["app_id"].lower())
+
     return background_apps
+
+
+def get_running_background_processes() -> list[dict]:
+    found = []
+    seen = set()
+    try:
+        for proc in psutil.process_iter(["name"]):
+            try:
+                proc_name = proc.info["name"]
+                if not proc_name:
+                    continue
+                proc_lower = proc_name.lower()
+                if proc_lower in _KNOWN_BACKGROUND_PROCESSES and proc_lower not in seen:
+                    seen.add(proc_lower)
+                    found.append({
+                        "app_id": proc_name,
+                        "window_title": ""
+                    })
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+    except Exception as e:
+        log.error(f"Error scanning background processes: {e}")
+    return found
 
 
 # ---------------------------------------------------------------------------

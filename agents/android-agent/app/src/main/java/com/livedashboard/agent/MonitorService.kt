@@ -77,6 +77,11 @@ class MonitorService : Service() {
         configManager.saveMonitoringEnabled(false)
     }
 
+    private fun isScreenOn(): Boolean {
+        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        return pm.isInteractive
+    }
+
     private fun getForegroundApp(): Pair<String, String> {
         if (MonitorAccessibilityService.isServiceRunning && MonitorAccessibilityService.currentPackageName.isNotEmpty()) {
             Log.d(TAG, "getForegroundApp: accessibility -> ${MonitorAccessibilityService.currentPackageName}")
@@ -142,7 +147,7 @@ class MonitorService : Service() {
             return
         }
 
-        val extra = apiClient.getBatteryInfo(this)
+        val extra = apiClient.getBatteryInfo(this).copy(screenOn = isScreenOn())
         val c = java.util.Calendar.getInstance()
         val timestamp = "${c.get(java.util.Calendar.YEAR)};${c.get(java.util.Calendar.MONTH) + 1};${c.get(java.util.Calendar.DAY_OF_MONTH)};${String.format("%02d", c.get(java.util.Calendar.HOUR_OF_DAY))}:${String.format("%02d", c.get(java.util.Calendar.MINUTE))}"
 

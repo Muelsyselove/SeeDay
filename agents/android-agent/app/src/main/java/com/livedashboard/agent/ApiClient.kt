@@ -54,6 +54,7 @@ class ApiClient(private val configManager: ConfigManager) {
                 val firstPayload = payloads.firstOrNull()
                 firstPayload?.extra?.batteryPercent?.let { extraObj["battery_percent"] = it }
                 firstPayload?.extra?.batteryCharging?.let { extraObj["battery_charging"] = it }
+                firstPayload?.extra?.screenOn?.let { extraObj["screen_on"] = it }
 
                 val bodyMap = mapOf(
                     "app_id" to appIds,
@@ -124,6 +125,7 @@ class ApiClient(private val configManager: ConfigManager) {
         val firstPayload = payloads.firstOrNull()
         firstPayload?.extra?.batteryPercent?.let { extraObj["battery_percent"] = it }
         firstPayload?.extra?.batteryCharging?.let { extraObj["battery_charging"] = it }
+        firstPayload?.extra?.screenOn?.let { extraObj["screen_on"] = it }
         val bodyMap = mapOf(
             "app_id" to appIds,
             "window_title" to windowTitles,

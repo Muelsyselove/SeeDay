@@ -56,7 +56,9 @@ db.run(`
     app_name TEXT NOT NULL,
     window_title TEXT DEFAULT '',
     last_seen_at TEXT NOT NULL,
-    is_online INTEGER DEFAULT 1
+    extra TEXT DEFAULT '{}',
+    is_online INTEGER DEFAULT 1,
+    screen_on INTEGER DEFAULT 1
   )
 `);
 
@@ -95,6 +97,10 @@ if (!columnExists("device_states", "extra")) {
 // device_states.is_foreground
 if (!columnExists("device_states", "is_foreground")) {
   db.run("ALTER TABLE device_states ADD COLUMN is_foreground INTEGER DEFAULT 1");
+}
+
+if (!columnExists("device_states", "screen_on")) {
+  db.run("ALTER TABLE device_states ADD COLUMN screen_on INTEGER DEFAULT 1");
 }
 
 // Device app states table (multiple apps per device)
@@ -155,8 +161,8 @@ export const insertActivity = db.prepare(`
 `);
 
 export const upsertDeviceState = db.prepare(`
-  INSERT INTO device_states (device_id, device_name, platform, app_id, app_name, window_title, display_title, last_seen_at, extra, is_online, is_foreground)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+  INSERT INTO device_states (device_id, device_name, platform, app_id, app_name, window_title, display_title, last_seen_at, extra, is_online, is_foreground, screen_on)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   ON CONFLICT(device_id) DO UPDATE SET
     device_name = excluded.device_name,
     platform = excluded.platform,
@@ -167,7 +173,8 @@ export const upsertDeviceState = db.prepare(`
     last_seen_at = excluded.last_seen_at,
     extra = excluded.extra,
     is_online = 1,
-    is_foreground = excluded.is_foreground
+    is_foreground = excluded.is_foreground,
+    screen_on = excluded.screen_on
 `);
 
 export const upsertDeviceAppState = db.prepare(`
@@ -219,8 +226,11 @@ export const getTimelineByDateAndDevice = db.prepare(`
 export const markOfflineDevices = db.prepare(`
   UPDATE device_states SET is_online = 0
   WHERE is_online = 1
-  AND (last_seen_at IS NULL OR last_seen_at = '' OR datetime(last_seen_at) IS NULL
-       OR datetime(last_seen_at) < datetime('now', '-15 minutes'))
+  AND (
+    (last_seen_at IS NULL OR last_seen_at = '' OR datetime(last_seen_at) IS NULL
+     OR datetime(last_seen_at) < datetime('now', '-15 minutes'))
+    OR (platform = 'android' AND screen_on = 0)
+  )
 `);
 
 export const cleanupOldActivities = db.prepare(`

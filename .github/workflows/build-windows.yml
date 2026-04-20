@@ -1,31 +1,20 @@
 name: Build & Release Windows Agent
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (例如: v0.1.0-rc.1)'
-        required: true
+        description: '版本号 (例如: v0.1.0)'
+        required: false
         type: string
-      prerelease:
-        description: '是否为预发布版本'
-        required: true
-        type: boolean
-        default: true
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   build-windows:
     runs-on: windows-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -45,14 +34,3 @@ jobs:
         run: |
           cd agents/windows
           python -m PyInstaller --onefile --noconsole --name SeeDay-Agent agent.py
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.version || github.ref_name }}
-          name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
-          files: agents/windows/dist/SeeDay-Agent.exe
-          prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

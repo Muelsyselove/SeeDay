@@ -10,5 +10,6 @@ data class ReportPayload(
 
 data class ExtraInfo(
     val batteryPercent: Int? = null,
-    val batteryCharging: Boolean? = null
+    val batteryCharging: Boolean? = null,
+    val screenOn: Boolean? = null
 )

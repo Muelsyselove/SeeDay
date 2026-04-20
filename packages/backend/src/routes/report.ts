@@ -62,6 +62,7 @@ export async function handleReport(req: Request): Promise<Response> {
 
   // Parse extra (battery, etc.) — whitelist fields first, then serialize
   let extraJson = "{}";
+  let screenOn: unknown;
   if (body.extra && typeof body.extra === "object" && !Array.isArray(body.extra)) {
     const extra: Record<string, unknown> = {};
     if (typeof body.extra.battery_percent === "number" && Number.isFinite(body.extra.battery_percent)) {
@@ -70,6 +71,7 @@ export async function handleReport(req: Request): Promise<Response> {
     if (typeof body.extra.battery_charging === "boolean") {
       extra.battery_charging = body.extra.battery_charging;
     }
+    screenOn = body.extra.screen_on;
     const rawMusic = body.extra.music;
     if (rawMusic != null && typeof rawMusic === "object" && !Array.isArray(rawMusic)) {
       const music: Record<string, string> = {};
@@ -82,6 +84,8 @@ export async function handleReport(req: Request): Promise<Response> {
     }
     extraJson = JSON.stringify(extra);
   }
+
+  const screenOnValue = (screenOn === true) ? 1 : (screenOn === false) ? 0 : 1;
 
   // Process each app
   resetDeviceForeground.run(device.device_id);
@@ -101,7 +105,7 @@ export async function handleReport(req: Request): Promise<Response> {
     const appName = resolveAppName(appId, device.platform);
 
     // Privacy: generate display_title (safe for public), then discard raw window_title
-    const displayTitle = processDisplayTitle(appName, windowTitle);
+    const displayTitle = processDisplayTitle(appName, windowTitle, appId);
 
     // Dedup: HMAC hash of the original title (keyed, not reversible)
     const timeBucket = Math.floor(new Date(startedAt).getTime() / 10000);
@@ -139,11 +143,12 @@ export async function handleReport(req: Request): Promise<Response> {
           device.platform,
           appId,
           appName,
-          "",           // window_title: always empty for privacy
+          "",
           displayTitle,
           toLocalDatetimeStr(new Date()),
           extraJson,
-          isForeground ? 1 : 0
+          isForeground ? 1 : 0,
+          screenOnValue
         );
       } catch (e: any) {
         console.error("[report] Device state update error:", e.message);

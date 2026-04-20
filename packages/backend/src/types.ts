@@ -40,7 +40,8 @@ export interface DeviceState {
   last_seen_at: string;
   is_online: number;
   is_foreground?: number;
-  extra: string; // JSON string
+  extra: string;
+  screen_on?: number;
 }
 
 export interface TimelineSegment {
