@@ -237,41 +237,43 @@ export function handleTimeline(url: URL): Response {
         endedAt = finalActivities[i + 1].started_at;
       }
 
-      let endDate = endedAt ? new Date(endedAt) : new Date();
-      let endMs = endDate.getTime();
-      if (isNaN(endMs)) endMs = startMs;
+      // started_at is stored in device local time, new Date() on UTC server parses it as UTC
+      // For running activities (endedAt=null), we need to adjust for timezone offset
+      // so that Date.now() (UTC) and startMs (parsed as UTC from local time string) are comparable
+      const tzOffsetMs = tzOffsetMinutes * 60 * 1000;
+      const adjustedStartMs = startMs + tzOffsetMs;
 
-      if (endMs <= startMs) {
-        endMs = startMs + 60_000;
+      let endDate = endedAt ? new Date(endedAt) : new Date();
+      let endMs = endedAt ? (endDate.getTime() + tzOffsetMs) : endDate.getTime();
+      if (isNaN(endMs)) endMs = Date.now();
+
+      if (endMs <= adjustedStartMs) {
+        endMs = adjustedStartMs + 60_000;
         endDate = new Date(endMs);
         endedAt = toLocalDatetimeStr(endDate);
       }
 
-      if (!isLastActivity && endedAt && endMs - startMs > GAP_THRESHOLD_MS) {
-        let lastHeartbeatMs = (a._endTime != null && !isNaN(a._endTime)) ? a._endTime : startMs + 60_000;
-        if (lastHeartbeatMs <= startMs) lastHeartbeatMs = startMs + 60_000;
+      if (!isLastActivity && endedAt && endMs - adjustedStartMs > GAP_THRESHOLD_MS) {
+        let lastHeartbeatMs = (a._endTime != null && !isNaN(a._endTime)) ? (a._endTime + tzOffsetMs) : adjustedStartMs + 60_000;
+        if (lastHeartbeatMs <= adjustedStartMs) lastHeartbeatMs = adjustedStartMs + 60_000;
         endMs = lastHeartbeatMs;
         endDate = new Date(endMs);
         endedAt = toLocalDatetimeStr(endDate);
       }
 
-      const activityStart = new Date(a.started_at);
-      const activityEnd = endedAt ? new Date(endedAt) : new Date();
+      const activityStart = new Date(adjustedStartMs);
+      const activityEnd = endedAt ? new Date(endMs) : new Date();
 
       const shouldInclude = activityStart < targetDateEnd && activityEnd > targetDateStart;
       
       if (shouldInclude) {
-        // Calculate the segment start and end times for the target date
-        const segmentStart = new Date(Math.max(startMs, targetDateStart.getTime()));
+        const segmentStart = new Date(Math.max(adjustedStartMs, targetDateStart.getTime()));
         const segmentEnd = new Date(Math.min(endMs, targetDateEnd.getTime()));
         const segmentDurationMinutes = Math.max(0, Math.round((segmentEnd.getTime() - segmentStart.getTime()) / 60000));
 
-        // Determine if this activity is currently running
         const isRunning = isLastActivity ? (isDeviceOnline && isToday) : false;
 
-        // For activities that start before the target date and continue into it
-        // we should show them as starting at the beginning of the target date
-        if (startDate < targetDateStart && endDate > targetDateStart) {
+        if (activityStart < targetDateStart && activityEnd > targetDateStart) {
           const adjustedStart = new Date(targetDateStart);
           segments.push({
             app_name: a.app_name,
@@ -286,7 +288,7 @@ export function handleTimeline(url: URL): Response {
             device_name: a.device_name,
             is_foreground: a.is_foreground === 1
           });
-        } else if (startDate >= targetDateStart && endDate <= targetDateEnd) {
+        } else if (activityStart >= targetDateStart && activityEnd <= targetDateEnd) {
           segments.push({
             app_name: a.app_name,
             app_id: a.app_id,
@@ -294,13 +296,13 @@ export function handleTimeline(url: URL): Response {
             started_at: a.started_at,
             ended_at: isAppCurrentlyRunning && isLastForApp ? null : endedAt,
             duration_minutes: isAppCurrentlyRunning && isLastForApp
-              ? Math.max(0, Math.round((Date.now() - startMs) / 60000))
+              ? Math.max(0, Math.round((Date.now() - adjustedStartMs) / 60000))
               : segmentDurationMinutes,
             device_id: a.device_id,
             device_name: a.device_name,
             is_foreground: a.is_foreground === 1
           });
-        } else if (startDate >= targetDateStart && endDate > targetDateEnd) {
+        } else if (activityStart >= targetDateStart && activityEnd > targetDateEnd) {
           segments.push({
             app_name: a.app_name,
             app_id: a.app_id,
@@ -308,7 +310,7 @@ export function handleTimeline(url: URL): Response {
             started_at: a.started_at,
             ended_at: isAppCurrentlyRunning && isLastForApp ? null : toLocalDatetimeStr(targetDateEnd),
             duration_minutes: isAppCurrentlyRunning && isLastForApp
-              ? Math.max(0, Math.round((Date.now() - startMs) / 60000))
+              ? Math.max(0, Math.round((Date.now() - adjustedStartMs) / 60000))
               : segmentDurationMinutes,
             device_id: a.device_id,
             device_name: a.device_name,
