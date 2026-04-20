@@ -119,7 +119,8 @@ jobs:
         with:
           tag: ${{ github.event.inputs.version || github.ref_name }}
           name: SeeDay ${{ github.event.inputs.version || github.ref_name }}
-          artifacts: agents/android-agent/app/build/outputs/apk/debug/app-debug.apk
+          artifacts: "agents/android-agent/app/build/outputs/apk/debug/app-debug.apk,agents/android-agent/app/build/outputs/apk/release/*.apk"
+          artifactErrorsFailBuild: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' || github.event.inputs.prerelease == true || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
           generateReleaseNotes: true
           omitBody: true
