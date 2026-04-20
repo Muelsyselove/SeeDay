@@ -10,16 +10,6 @@ export function handleTimeline(url: URL): Response {
   const toLocalDatetimeStr = (d: Date) => {
     return `${String(d.getFullYear()).padStart(4, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
   };
-  const parseLocalDate = (dateStr: string, tzOffsetMinutes: number) => {
-    // dateStr is like "2026-04-20"
-    // tzOffsetMinutes is like -480 for UTC+8
-    // We want to interpret this as the device's local date, not the server's
-    // Since data is stored in device local time, we query directly by that date string
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const start = `${dateStr} 00:00:00`;
-    const end = `${dateStr} 23:59:59`;
-    return { start, end };
-  };
 
   const date = url.searchParams.get("date");
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -37,19 +27,16 @@ export function handleTimeline(url: URL): Response {
 
   let activities: ActivityRecord[];
 
-  // Data is stored in device local time, so we query by the local date range directly
-  // Include a wider range to catch cross-day activities
-  const { start: queryStart, end: queryEnd } = parseLocalDate(date, tzOffsetMinutes);
-  const prevDateStart = `${new Date(new Date(date + "T00:00:00").getTime() - 2 * 86400000).toISOString().slice(0, 10)} 00:00:00`;
-  const nextDateEnd = `${new Date(new Date(date + "T00:00:00").getTime() + 86400000).toISOString().slice(0, 10)} 23:59:59`;
-
+  // For cross-day activities, we need to include activities from previous days that might continue into the target date
+  // We'll handle this in the processing logic, not in the query
+  // Query activities from a wider range to ensure we capture all relevant data
   const query = deviceId
-    ? db.prepare(`SELECT *, is_foreground FROM activities WHERE started_at >= ? AND started_at <= ? AND device_id = ? ORDER BY started_at ASC`)
-    : db.prepare(`SELECT *, is_foreground FROM activities WHERE started_at >= ? AND started_at <= ? ORDER BY started_at ASC`);
+    ? db.prepare(`SELECT *, is_foreground FROM activities WHERE started_at >= datetime(?, '-2 days') AND started_at <= datetime(?, '+1 day') AND device_id = ? ORDER BY started_at ASC`)
+    : db.prepare(`SELECT *, is_foreground FROM activities WHERE started_at >= datetime(?, '-2 days') AND started_at <= datetime(?, '+1 day') ORDER BY started_at ASC`);
 
   activities = deviceId
-    ? (query.all(prevDateStart, nextDateEnd, deviceId) as ActivityRecord[])
-    : (query.all(prevDateStart, nextDateEnd) as ActivityRecord[]);
+    ? (query.all(date, date, deviceId) as ActivityRecord[])
+    : (query.all(date, date) as ActivityRecord[]);
 
   const INPUT_METHOD_APPS = new Set([
     "textinputhost.exe", "shellhost.exe", "ctfmon.exe", "sogoucloud.exe",
@@ -213,18 +200,22 @@ export function handleTimeline(url: URL): Response {
 
     const runningApps = runningAppsByDevice.get(deviceId) || new Set<string>();
 
-    // Target date range in device local time (for filtering segments)
-    const targetDateStr = date; // "2026-04-20"
-    const targetDateStart = new Date(`${targetDateStr}T00:00:00`);
-    const targetDateEnd = new Date(`${targetDateStr}T23:59:59`);
+    const localDate = new Date(date + 'T00:00:00');
+    const localOffset = localDate.getTimezoneOffset() * 60 * 1000;
 
-    // Check if target date is "today" in device's timezone
-    const nowUtc = new Date();
-    // Estimate device local time using tzOffsetMinutes
-    const nowDevice = new Date(nowUtc.getTime() - tzOffsetMinutes * 60 * 1000);
-    const isToday = nowDevice.getFullYear() === parseInt(date.split("-")[0]) &&
-                    nowDevice.getMonth() === parseInt(date.split("-")[1]) - 1 &&
-                    nowDevice.getDate() === parseInt(date.split("-")[2]);
+    let targetDateStart = new Date(localDate.getTime() - localOffset);
+    targetDateStart.setHours(0, 0, 0, 0);
+
+    let targetDateEnd = new Date(localDate.getTime() - localOffset);
+    targetDateEnd.setHours(23, 59, 59, 999);
+
+    if (tzOffsetMinutes && !isNaN(tzOffsetMinutes) && Math.abs(tzOffsetMinutes) <= 840) {
+      targetDateStart = new Date(targetDateStart.getTime() + tzOffsetMinutes * 60 * 1000);
+      targetDateEnd = new Date(targetDateEnd.getTime() + tzOffsetMinutes * 60 * 1000);
+    }
+
+    const loopNow = new Date();
+    const isToday = loopNow >= targetDateStart && loopNow <= targetDateEnd;
 
     for (let i = 0; i < finalActivities.length; i++) {
       const a = finalActivities[i];
