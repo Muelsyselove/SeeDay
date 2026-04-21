@@ -10,6 +10,22 @@
 
 本项目基于 [live-dashboard](https://github.com/Monika-Dream/live-dashboard) 进行二次开发，感谢原作者的开源贡献。
 
+## 📚 文档导航
+
+> **强烈建议新用户先阅读 Wiki 文档**，了解项目架构、部署流程和 Agent 配置后再开始使用。
+
+| 文档 | 说明 |
+|------|------|
+| [功能介绍](https://github.com/Muelsyselove/SeeDay/wiki/功能介绍) | 了解 SeeDay 的所有核心功能 |
+| [技术架构](https://github.com/Muelsyselove/SeeDay/wiki/技术架构) | 系统架构、技术栈和组件说明 |
+| [部署要求](https://github.com/Muelsyselove/SeeDay/wiki/部署要求) | 服务器配置和系统环境要求 |
+| [详细部署流程](https://github.com/Muelsyselove/SeeDay/wiki/详细部署流程) | 分步部署指南，适合 AI 和新手 |
+| [Agent 配置指南](https://github.com/Muelsyselove/SeeDay/wiki/Agent配置指南) | Agent 下载、安装、配置详解 |
+| [文件说明](https://github.com/Muelsyselove/SeeDay/wiki/文件说明) | 哪些文件需要部署，哪些可以忽略 |
+| [AI 部署教程](https://github.com/Muelsyselove/SeeDay/wiki/AI部署教程) | 使用 AI 工具进行自动部署 |
+
+---
+
 ## 功能特性
 
 ### 实时活动追踪
@@ -37,106 +53,78 @@
 
 ### 隐私说明
 
-本项目提供基础的隐私处理机制（应用分级过滤、敏感词过滤），但数据会被 Agent 上报到后端服务器。详细隐私说明请见 [Wiki](https://github.com/Muelsyselove/SeeDay/wiki/Features#隐私说明)。
+本项目提供基础的隐私处理机制（应用分级过滤、敏感词过滤），但数据会被 Agent 上报到后端服务器。详细隐私说明请见 [Wiki 功能介绍](https://github.com/Muelsyselove/SeeDay/wiki/功能介绍#隐私说明)。
 
 ## 项目结构
 
 ```
 SeeDay/
-├── agents/                  # 活动追踪代理
+├── agents/                  # 活动追踪代理（客户端使用）
 │   ├── windows/            # Windows 代理程序（✅ 已支持）
 │   ├── macos/              # macOS 代理程序（🔨 开发中）
-│   ├── ios/                # iOS 代理程序（🔨 开发中）
-│   └── android/            # Android 代理程序（🔨 开发中）
+│   └── android-agent/      # Android 代理程序（🔨 开发中）
 ├── packages/
-│   ├── backend/            # 后端服务
-│   └── frontend/           # 前端仪表盘
-├── deploy/                 # 部署配置
-├── docs/                   # 文档资源
-└── themes/                 # 主题样式文件
+│   ├── backend/            # 后端服务（Bun + TypeScript）
+│   └── frontend/           # 前端仪表盘（Next.js + React）
+├── Dockerfile              # Docker 镜像构建
+├── docker-compose.yml      # Docker 编排配置
+├── data/                   # SQLite 数据存储
+└── wiki/                   # Wiki 文档
 ```
 
 ## 快速开始
 
-### 前置要求
-- Node.js 18+
-- Python 3.8+
-- SQLite 3
+### 方式一：Docker 部署（推荐）
 
-### 安装步骤
-
-1. 克隆仓库
 ```bash
+# 1. 克隆仓库
 git clone https://github.com/Muelsyselove/SeeDay.git
 cd SeeDay
-```
 
-2. 配置后端
-```bash
-cd packages/backend
-npm install
+# 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，配置必要的环境变量
+# 编辑 .env 文件，配置 HASH_SECRET 和 DEVICE_TOKEN
+
+# 3. 启动服务
+docker compose up -d
 ```
 
-3. 配置前端
-```bash
-cd ../frontend
-npm install
-```
+详细部署流程请参考：[详细部署流程 Wiki](https://github.com/Muelsyselove/SeeDay/wiki/详细部署流程)
 
-4. 安装代理程序
-- Windows: `cd agents/windows && install-task.bat`
-- macOS: 开发中，敬请期待
-- iOS: 开发中，敬请期待
-- Android: 开发中，敬请期待
+### 方式二：手动部署
 
-5. 启动服务
 ```bash
-# 后端
+# 1. 安装 Bun
+curl -fsSL https://bun.sh/install | bash
+
+# 2. 配置后端
 cd packages/backend
-npm start
+bun install
+cp .env.example .env
 
-# 前端
-cd packages/frontend
-npm run dev
+# 3. 构建前端
+cd ../frontend
+bun install
+bun run build
+
+# 4. 启动后端
+cd ../backend
+bun run src/index.ts
 ```
 
-或使用 Docker：
-```bash
-docker-compose up -d
-```
+### 安装 Agent
+
+Windows Agent 配置请参考：[Agent 配置指南 Wiki](https://github.com/Muelsyselove/SeeDay/wiki/Agent配置指南)
 
 ### 配置环境变量
 
-编辑 `.env` 文件：
-
 | 变量 | 必填 | 说明 |
 |------|------|------|
-| `PORT` | 否 | 服务端口（默认 3000） |
+| `HASH_SECRET` | 是 | 哈希密钥，使用 `openssl rand -hex 32` 生成 |
+| `DEVICE_TOKEN_1` | 是 | 设备 Token，格式：`token:id:name:platform` |
 | `AI_API_URL` | 否 | AI API 端点 |
 | `AI_API_KEY` | 否 | AI API 密钥 |
 | `AI_MODEL` | 否 | AI 模型名称（默认 gpt-4o-mini） |
-
-## 主题系统
-
-SeeDay 支持多种主题风格，你可以在 `themes/` 目录下找到预置的主题：
-
-- **默认主题**：简洁现代的设计
-- **水墨主题**：中国传统水墨风格
-- **其他主题**：更多精美主题持续添加中
-
-在设置中切换主题，或使用快捷键快速切换。
-
-## 文档
-
-更详细的文档请访问 [项目 Wiki](https://github.com/Muelsyselove/SeeDay/wiki)：
-
-- [功能介绍](https://github.com/Muelsyselove/SeeDay/wiki/Features)
-- [技术架构](https://github.com/Muelsyselove/SeeDay/wiki/Architecture)
-- [部署要求](https://github.com/Muelsyselove/SeeDay/wiki/Requirements)
-- [部署指南](https://github.com/Muelsyselove/SeeDay/wiki/Deployment-Guide)
-- [AI 自动部署教程](https://github.com/Muelsyselove/SeeDay/wiki/AI-Deployment)
 
 ## 许可证
 

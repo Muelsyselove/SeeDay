@@ -1,5 +1,66 @@
 # 更新记录
 
+## v1.9.0 - 2026-04-21
+### 新增 iOS Agent 项目
+- **项目路径**：`agents/ios/LiveDashboardAgent/`
+- **完整 Swift iOS 应用**，监控应用使用情况并上报到仪表盘后端
+- **Models 层**：
+  - `ReportPayload.swift`：上报数据模型，包含 appId、windowTitle、isForeground、timestamp、extra 字段，支持 `toDict()` 序列化
+  - `ExtraInfo.swift`：附加信息模型，包含 batteryPercent、batteryCharging、screenOn 可选字段
+  - `AppConfig.swift`：应用配置模型，包含 serverUrl、deviceToken、reportIntervalSeconds、isMonitoringEnabled 字段
+- **Services 层**：
+  - `ConfigManager.swift`：单例配置管理器，使用 UserDefaults 持久化，key 前缀 `live_dashboard_agent_`，提供 getConfig/saveServerUrl/saveDeviceToken/saveReportInterval/saveMonitoringEnabled/isConfigured 方法
+  - `ApiClient.swift`：单例 HTTP 客户端，Bearer Token 认证，多应用报告使用 `;;` 分隔符格式，时间戳格式 `年;月;日;时:分`，tz 时区偏移字段，指数退避重试（最大60s），网络失败缓存（最多50条），电池信息采集（UIDevice），屏幕亮灭检测，连接测试方法（DNS→TCP→HTTP /api/health 逐步检测）
+  - `MonitorManager.swift`：监控协调器，前台/后台应用检测与定时上报，系统应用黑名单（30个 com.apple.* 应用），DeviceActivityMonitor 前台应用检测，FamilyActivitySelection 后台应用检测，Timer 定时周期上报
+- **App 层**：
+  - `AppDelegate.swift`：UIKit AppDelegate，配置 BGTaskScheduler 后台处理任务（report + fetch），请求通知权限，启用电池监控
+  - `SceneDelegate.swift`：UIKit SceneDelegate，设置 MainView 为根视图，前台切换时刷新应用信息
+  - `LiveDashboardAgentApp.swift`：SwiftUI App 入口，通过 @UIApplicationDelegateAdaptor 桥接 AppDelegate
+- **Views 层**：
+  - `MainView.swift`：主界面显示运行状态（监控运行中/监控已停止/权限未授予）、当前前台应用、上次上报时间、服务器连接状态、监控开关，每2秒自动刷新，启动前检查权限和配置
+  - `SettingsView.swift`：设置界面，服务器 URL、设备令牌（安全输入）、上报间隔（最小10秒）、测试连接按钮（DNS→TCP→HTTP 逐步显示结果）、保存按钮，字段验证
+  - `PermissionGuideView.swift`：权限引导界面，引导用户开启屏幕使用时间/家庭控制权限和通知权限，提供跳转系统设置的按钮
+- **Extension**：
+  - `DeviceActivityMonitorExtension.swift`：Screen Time API 扩展，实现 DeviceActivityMonitor 协议，捕获应用切换事件，通过 App Group 共享 UserDefaults 存储前台应用信息
+  - Extension `Info.plist`：配置 NSExtension 扩展点
+- **共享代码**：
+  - `DeviceActivityMonitorHandler.swift`：App 与 Extension 共享的常量和工具方法，定义 App Group suite name `group.com.livedashboard.agent`，提供 setCurrentApp/getCurrentApp/getLastForegroundApp/clearCurrentApp 方法
+- **配置文件**：
+  - `Resources/Info.plist`：UIBackgroundModes（fetch + processing）、NSAppTransportSecurity（Allow Arbitrary Loads）、NSFamilyControlsUsageDescription、UIApplicationSceneManifest
+  - `Entitlements/LiveDashboardAgent.entitlements`：com.apple.developer.family-controls、com.apple.developer.deviceactivity、App Group
+
+## v1.8.0 - 2026-04-21
+### macOS Agent 完整重写，对齐 Windows Agent 功能
+- **完整重写** `agents/macos/agent.py`，从单应用报告升级为多应用报告，对齐 Windows Agent 的全部功能
+- **多应用报告格式**：使用 `;;` 分隔符拼接 `app_id`、`window_title`、`is_foreground` 字段，时间戳格式 `年;月;日;时:分`（如 `"2026;04;21;14:30"`），新增 `tz` 时区偏移字段（分钟）
+- **前台应用检测**：保留 AppleScript 方式，增加桌面歌词窗口过滤、黑名单进程过滤、超时和错误处理
+- **后台应用检测**：新增 `get_background_apps()` 函数
+  - 使用 AppleScript 枚举所有可见非前台窗口（`background only is false and visible is true`）
+  - 使用 psutil 扫描已知后台进程（微信、Telegram、Discord、QQ、飞书、钉钉、Skype、Slack、Zoom、Spotify、网易云音乐等）
+  - 两路结果按 `app_id` 去重合并
+- **空闲检测**：新增 `get_idle_seconds()` 函数，通过 ctypes 调用 macOS Quartz Event Services 的 `CGEventSourceSecondsSinceLastEventType(0, 0xFFFFFFFF)` 获取空闲秒数
+- **全屏检测**：新增 `is_fullscreen()` 函数，通过 AppleScript 检查前台窗口的 `zoomed` 属性
+- **媒体运行检测**：新增 `is_media_running()` 函数，通过 psutil 检查已知音乐/视频进程是否运行
+- **隐私模式**：新增全局 `_privacy_mode` 标志，启用时将报告内容替换为 `app_id="设备运行"`、`window_title="你猜"`
+- **电池信息**：保留 psutil 方式
+- **音乐信息**：保留并扩展 AppleScript 方式，支持 Spotify、Apple Music、QQ音乐、网易云音乐
+- **菜单栏图标**：使用 `rumps` 库实现 macOS 菜单栏图标，显示在线状态和当前前台应用名
+- **菜单栏菜单**：包含"设置"、"隐私模式"开关、"开机自启"开关、"退出"
+- **设置 GUI**：使用 tkinter 实现设置窗口，包含服务器URL、Token、上报间隔、心跳间隔、空闲阈值字段
+- **开机自启**：管理 `~/Library/LaunchAgents/com.livedashboard.agent.plist`，使用 `launchctl load/unload` 控制启用/禁用
+- **日志轮转**：实现 `DailyFileHandler`，按日期分割日志文件，保留 2 天，自动清理过期日志
+- **Reporter 类**：多应用 `send()` 方法，匹配 Windows Agent 的 `;;` 分隔格式，指数退避重试
+- **URL 安全验证**：HTTPS 始终允许，HTTP 仅限私有网络，使用 `ValidationError` 异常替代 `sys.exit()`
+- **配置加载**：`load_config()` 支持多路径查找、必填字段验证、数值范围校验，新增 `idle_threshold_seconds` 字段
+- **监控主循环**：对齐 Windows Agent 逻辑：空闲检测 → 前台应用检测 → 变更/心跳判断 → 多应用报告
+- **macOS 特有适配**：
+  - 后台应用黑名单包含 macOS 系统进程（Dock、Finder、SystemUIServer、loginwindow、WindowServer 等 28 个）
+  - 音乐进程映射：Spotify→"Spotify"、Music→"Apple Music"、QQMusic→"QQ音乐"、NeteaseMusic→"网易云音乐"、VLC→"VLC"、IINA→"IINA"
+  - 视频进程映射：IINA→"IINA"、VLC→"VLC"
+  - 已知后台进程：WeChat、Telegram、Discord、QQ、Feishu、Lark、DingTalk、Skype、Slack、Zoom、Spotify、NeteaseMusic
+- **更新** `requirements.txt`：新增 `rumps>=0.4.0`、`Pillow>=9.5.0` 依赖
+- **更新** `config.json.example`：新增 `idle_threshold_seconds` 字段
+
 ## v1.7.0 - 2026-04-21
 ### Android Agent 报告后台应用，修复手机端应用从时间轴消失
 - **问题**：手机端微信在时间轴上消失，切换到其他应用后不再显示
