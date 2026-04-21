@@ -65,6 +65,8 @@ export function handleTimeline(url: URL): Response {
     });
   }
 
+  const tzOffsetMs = tzOffsetMinutes * 60 * 1000;
+
   const runningAppsByDevice = new Map<string, Set<string>>();
   const runningAppRows = db.prepare(`SELECT device_id, app_name FROM device_app_states WHERE last_seen_at > datetime('now', '-5 minutes')`).all() as Array<{ device_id: string; app_name: string }>;
   for (const row of runningAppRows) {
@@ -96,7 +98,7 @@ export function handleTimeline(url: URL): Response {
 
     const deviceOnline = deviceOnlineMap.get(deviceId);
     const isDeviceOnline = deviceOnline ? deviceOnline.isOnline : false;
-    const deviceLastSeen = deviceOnline ? deviceOnline.lastSeenAt : null;
+    const deviceLastSeen = deviceOnline ? new Date(deviceOnline.lastSeenAt.getTime() - tzOffsetMs) : null;
 
     deviceActivities.sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
 
@@ -207,7 +209,8 @@ export function handleTimeline(url: URL): Response {
     let targetDateEnd = new Date(date + 'T23:59:59');
 
     const loopNow = new Date();
-    const isToday = loopNow >= targetDateStart && loopNow <= targetDateEnd;
+    const loopNowLocal = new Date(loopNow.getTime() - tzOffsetMs);
+    const isToday = loopNowLocal >= targetDateStart && loopNowLocal <= targetDateEnd;
 
     for (let i = 0; i < finalActivities.length; i++) {
       const a = finalActivities[i];
@@ -236,11 +239,6 @@ export function handleTimeline(url: URL): Response {
       } else {
         endedAt = finalActivities[i + 1].started_at;
       }
-
-      // started_at and endedAt are stored in device local time strings
-      // new Date() on UTC server parses them as UTC, so they are on the same time base
-      // Only Date.now() (for running activities) is true UTC and needs adjustment
-      const tzOffsetMs = tzOffsetMinutes * 60 * 1000;
 
       let endDate = endedAt ? new Date(endedAt) : new Date();
       let endMs = endedAt ? endDate.getTime() : (endDate.getTime() - tzOffsetMs);

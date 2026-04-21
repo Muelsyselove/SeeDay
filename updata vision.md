@@ -1,5 +1,57 @@
 # 更新记录
 
+## v1.7.0 - 2026-04-21
+### Android Agent 报告后台应用，修复手机端应用从时间轴消失
+- **问题**：手机端微信在时间轴上消失，切换到其他应用后不再显示
+- **根本原因**：Android Agent 只报告前台应用（`getForegroundApp()` 返回单个应用），而 Windows Agent 同时报告前台和后台应用
+  - 当用户从微信切换到哔哩哔哩时，微信不再被报告
+  - 后端 `expireStaleAppStates` 把不在当前报告中的应用标记为过期（`last_seen_at` 设为10分钟前）
+  - 时间轴的 `runningAppsByDevice` 查询 `last_seen_at > datetime('now', '-5 minutes')`，过期应用不会出现
+- **修复**：在 `MonitorService.kt` 中新增 `getBackgroundApps()` 方法
+  - 使用 `UsageStatsManager.queryUsageStats()` 查询最近5分钟内活跃的应用
+  - 过滤掉前台应用、自身包名、系统应用（launcher、systemui、settings、输入法等）
+  - 最多返回10个后台应用，按最近使用时间排序
+  - 新增 `BACKGROUND_BLACKLIST` 集合过滤系统应用
+- **修改 `performReport()`**：同时报告前台和后台应用
+  - 构建 `payloads` 列表，前台应用 `isForeground=true`，后台应用 `isForeground=false`
+  - 通知栏显示"运行中 | 上报中: $appId +N后台"
+- **后端无需修改**：`report.ts` 已支持多应用报告，`expireStaleAppStates` 只过期不在报告中的应用
+
+### 修复所有布局的同名应用展开状态联动bug（v1.6.2 补充修复）
+- **问题**：展开手机端 Edge 时，电脑端的 Edge 也被同时展开
+- **原因**：v1.6.2 只修复了 `DefaultLayout.tsx`，但实际使用的是 `InkLayout.tsx` 和 `PersonaLayout.tsx`
+- **修复**：将 `InkLayout.tsx` 和 `PersonaLayout.tsx` 中的展开 key 从 `ag.appName` 改为 `${devId}-${ag.appName}` 复合 key
+  - `expandedApps.has()`、`toggleApp()`、`itemRefs.current.set()`、`noScrollbarApps.has()` 均使用复合 key
+
+## v1.6.2 - 2026-04-21
+### 修复不同设备同名应用展开状态联动bug
+- **问题**：展开手机端微信时，电脑端的微信也被同时展开
+- **原因**：`expandedApps`、`noScrollbarApps`、`itemRefs` 状态使用 `appName` 作为 key，不同设备的同名应用共享同一个展开状态
+- **修复**：将 key 从 `appName` 改为 `${devId}-${appName}` 复合 key，确保每个设备的每个应用有独立的展开状态
+  - `toggleApp()` 参数从 `appName` 改为 `key`（复合 key）
+  - `expandedApps.has()`、`noScrollbarApps.has()`、`itemRefs.current.set()` 均使用复合 key
+  - 音乐/视频区域（`__music__`、`__video__`）不受影响，仍使用全局 key
+
+## v1.6.1 - 2026-04-21
+### 修复时间轴运行中应用不显示"现在"的时区问题
+- **问题**：正在运行的应用（如 Edge）在时间轴中显示"01:41 – 01:42"而非"01:41 – 现在"
+- **根本原因**：`timeline.ts` 中的 `isToday` 检查将真实 UTC 时间与用户本地日期范围比较，未考虑时区偏移
+  - 服务器运行在 UTC 时区，当前 UTC 时间为 4月20日 18:40
+  - 用户在 UTC+8 时区，本地时间为 4月21日 02:40
+  - `targetDateStart` = "2026-04-21T00:00:00" 被解析为 UTC 4月21日 00:00
+  - `isToday = (4月20日 18:40 UTC >= 4月21日 00:00 UTC)` = FALSE
+  - 由于 `isToday` 为 FALSE，`isAppCurrentlyRunning` 始终为 FALSE，`ended_at` 从未被设为 null
+- **修复 1**：`isToday` 检查使用 `loopNowLocal`（将 UTC 当前时间转换为设备本地时间基）进行比较
+  - `loopNowLocal = new Date(loopNow.getTime() - tzOffsetMs)`
+  - 对于 UTC+8：`loopNowLocal` = UTC 18:40 + 8小时 = 本地 02:40，正确落在 4月21日范围内
+- **修复 2**：`deviceLastSeen` 从 UTC 转换为设备本地时间基
+  - `device_states.last_seen_at` 以 UTC 存储（由 `toLocalDatetimeStr(new Date())` 生成）
+  - 但 `activities.started_at` 以设备本地时间存储
+  - 修复：`deviceLastSeen = new Date(deviceOnline.lastSeenAt.getTime() - tzOffsetMs)`
+  - 确保 `endedAt` 与 `startedAt` 在同一时间基上
+- **修复 3**：将 `tzOffsetMs` 计算提前到设备循环之前，避免在内部循环中重复计算
+- **数据库修复**：恢复因 WAL 模式文件损坏导致的数据库损坏，使用 `.dump` + `INSERT OR IGNORE` 恢复 4234 条活动记录
+
 ## v1.6.0 - 2026-04-20
 ### 修复隐私分级双键匹配，扩展 Android 应用支持
 - **修复隐私分级双键匹配**：`getPrivacyTier()` 新增可选参数 `appId`，支持同时按应用名称和应用ID匹配隐私分级。当 `appName` 未匹配到分级时，会尝试用 `appId`（如 Android 包名）再次查找

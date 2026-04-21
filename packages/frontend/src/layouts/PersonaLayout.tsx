@@ -608,17 +608,18 @@ function PersonaLayoutInner({ themes, currentTheme, switchTheme }: LayoutProps) 
                     <p className="p5-tl-device-name">{name}</p>
                     {appGroups.map((ag) => {
                       const c = getColor(ag.appName);
-                      const expanded = expandedApps.has(ag.appName);
+                      const appKey = `${devId}-${ag.appName}`;
+                      const expanded = expandedApps.has(appKey);
                       return (
                         <div key={ag.appName} className={`p5-tl-app${ag.isCurrent && isToday ? " p5-active" : ""}`}>
-                          <div className="p5-tl-app-header" onClick={() => toggleApp(ag.appName)} style={{ cursor: "pointer" }}>
+                          <div className="p5-tl-app-header" onClick={() => toggleApp(appKey)} style={{ cursor: "pointer" }}>
                             <span className="p5-tl-app-dot" style={{ background: c }} />
                             <span className="p5-tl-app-name">{ag.appName}</span>
                             {ag.isCurrent && isToday && <span className="p5-tl-app-now">NOW</span>}
                             <span className="p5-tl-app-total">{fmtDur(ag.totalDuration)}</span>
                             <span className="p5-tl-app-toggle" style={{ transform: expanded ? "rotate(45deg)" : "rotate(0deg)" }}>+</span>
                           </div>
-                          <div ref={el => { if (el) itemRefs.current.set(ag.appName, el); }} className={`p5-tl-app-wrap${expanded ? " expanded" : ""}${noScrollbarApps.has(ag.appName) ? " no-scrollbar" : ""}`}>
+                          <div ref={el => { if (el) itemRefs.current.set(appKey, el); }} className={`p5-tl-app-wrap${expanded ? " expanded" : ""}${noScrollbarApps.has(appKey) ? " no-scrollbar" : ""}`}>
                             <div className="p5-tl-app-items">
                               {ag.items.map((item) => (
                                 <div key={`${item.started_at}-${item.device_id}`} className="p5-tl-item">

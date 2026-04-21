@@ -82,6 +82,48 @@ class MonitorService : Service() {
         return pm.isInteractive
     }
 
+    private val BACKGROUND_BLACKLIST = setOf(
+        "com.android.systemui",
+        "com.android.launcher",
+        "com.android.launcher3",
+        "com.android.settings",
+        "com.android.packageinstaller",
+        "com.android.vending",
+        "com.google.android.packageinstaller",
+        "com.android.permissioncontroller",
+        "com.android.inputmethod.latin",
+        "com.google.android.inputmethod.latin",
+        "com.sohu.inputmethod.sogou",
+        "com.iflytek.inputmethod",
+        packageName
+    )
+
+    private fun getBackgroundApps(foregroundAppId: String): List<Pair<String, String>> {
+        val backgroundApps = mutableListOf<Pair<String, String>>()
+        try {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val endTime = System.currentTimeMillis()
+            val startTime = endTime - 5 * 60 * 1000L
+            val usageStatsList = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, startTime, endTime)
+
+            val recentApps = usageStatsList
+                .filter { it.packageName != packageName && it.lastTimeUsed > 0 }
+                .filter { it.packageName !in BACKGROUND_BLACKLIST }
+                .filter { it.packageName != foregroundAppId }
+                .sortedByDescending { it.lastTimeUsed }
+                .take(10)
+
+            for (stat in recentApps) {
+                backgroundApps.add(Pair(stat.packageName, ""))
+            }
+
+            Log.d(TAG, "getBackgroundApps: found ${backgroundApps.size} background apps (fg=$foregroundAppId)")
+        } catch (e: Exception) {
+            Log.w(TAG, "getBackgroundApps: query failed", e)
+        }
+        return backgroundApps
+    }
+
     private fun getForegroundApp(): Pair<String, String> {
         if (MonitorAccessibilityService.isServiceRunning && MonitorAccessibilityService.currentPackageName.isNotEmpty()) {
             Log.d(TAG, "getForegroundApp: accessibility -> ${MonitorAccessibilityService.currentPackageName}")
@@ -151,16 +193,29 @@ class MonitorService : Service() {
         val c = java.util.Calendar.getInstance()
         val timestamp = "${c.get(java.util.Calendar.YEAR)};${c.get(java.util.Calendar.MONTH) + 1};${c.get(java.util.Calendar.DAY_OF_MONTH)};${String.format("%02d", c.get(java.util.Calendar.HOUR_OF_DAY))}:${String.format("%02d", c.get(java.util.Calendar.MINUTE))}"
 
-        val payload = ReportPayload(
-            appId = appId,
-            windowTitle = windowTitle,
-            isForeground = true,
-            timestamp = timestamp,
-            extra = extra
+        val payloads = mutableListOf(
+            ReportPayload(
+                appId = appId,
+                windowTitle = windowTitle,
+                isForeground = true,
+                timestamp = timestamp,
+                extra = extra
+            )
         )
 
-        updateNotification("运行中 | 上报中: $appId")
-        val result = apiClient.report(listOf(payload), this)
+        val bgApps = getBackgroundApps(appId)
+        for ((bgAppId, bgTitle) in bgApps) {
+            payloads.add(ReportPayload(
+                appId = bgAppId,
+                windowTitle = bgTitle,
+                isForeground = false,
+                timestamp = timestamp,
+                extra = extra
+            ))
+        }
+
+        updateNotification("运行中 | 上报中: $appId +${bgApps.size}后台")
+        val result = apiClient.report(payloads, this)
         if (result.isSuccess) {
             val lastTime = apiClient.getLastReportTime()
             val timeStr = if (lastTime > 0) {

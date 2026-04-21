@@ -172,20 +172,20 @@ function DefaultLayoutInner({ themes, currentTheme, switchTheme }: LayoutProps) 
     window.addEventListener("resize", check);
     return () => { observer.disconnect(); window.removeEventListener("resize", check); };
   }, [timeline]);
-  const toggleApp = useCallback((appName: string) => {
+  const toggleApp = useCallback((key: string) => {
     setExpandedApps(prev => {
       const next = new Set(prev);
-      if (next.has(appName)) {
-        next.delete(appName);
-        setNoScrollbarApps(sp => { const s = new Set(sp); s.delete(appName); return s; });
+      if (next.has(key)) {
+        next.delete(key);
+        setNoScrollbarApps(sp => { const s = new Set(sp); s.delete(key); return s; });
       } else {
-        next.add(appName);
+        next.add(key);
         setTimeout(() => {
-          const wrapper = itemRefs.current.get(appName);
+          const wrapper = itemRefs.current.get(key);
           if (wrapper) {
             const child = wrapper.firstElementChild as HTMLElement;
             if (child && child.scrollHeight <= child.clientHeight) {
-              setNoScrollbarApps(sp => { const s = new Set(sp); s.add(appName); return s; });
+              setNoScrollbarApps(sp => { const s = new Set(sp); s.add(key); return s; });
             }
           }
         }, 350);
@@ -758,17 +758,18 @@ function DefaultLayoutInner({ themes, currentTheme, switchTheme }: LayoutProps) 
                       <p className="tl-device-name">{name}</p>
                       {appGroups.map((ag) => {
                         const c = getColor(ag.appName);
-                        const expanded = expandedApps.has(ag.appName);
+                        const appKey = `${devId}-${ag.appName}`;
+                        const expanded = expandedApps.has(appKey);
                         return (
                           <div key={ag.appName} className={`tl-app-group ${ag.isCurrent && isToday ? "tl-app-active" : ""}`}>
-                            <div className="tl-app-header" onClick={() => toggleApp(ag.appName)} style={{ cursor: "pointer" }}>
+                            <div className="tl-app-header" onClick={() => toggleApp(appKey)} style={{ cursor: "pointer" }}>
                               <span className="tl-app-dot" style={{ background: c }} />
                               <span className="tl-app-name">{ag.appName}</span>
                               {ag.isCurrent && isToday && <span className="tl-app-now">Now</span>}
                               <span className="tl-app-total">{fmtDur(ag.totalDuration)}</span>
                               <span className="tl-app-toggle" style={{ transform: expanded ? "rotate(0deg)" : "rotate(-90deg)" }}>▼</span>
                             </div>
-                            <div ref={el => { if (el) itemRefs.current.set(ag.appName, el); }} className={`tl-app-items-wrapper${isMobile ? " mobile" : ""}${expanded ? " expanded" : ""}${noScrollbarApps.has(ag.appName) ? " no-scrollbar" : ""}`}>
+                            <div ref={el => { if (el) itemRefs.current.set(appKey, el); }} className={`tl-app-items-wrapper${isMobile ? " mobile" : ""}${expanded ? " expanded" : ""}${noScrollbarApps.has(appKey) ? " no-scrollbar" : ""}`}>
                             <div className="tl-app-items">
                               {ag.items.map((item) => (
                                 <div key={`${item.started_at}-${item.device_id}`} className="tl-app-item">
