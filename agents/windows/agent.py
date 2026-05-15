@@ -18,7 +18,7 @@ import threading
 import winreg
 
 import psutil
-import requests
+from curl_cffi import requests
 import pystray
 from PIL import Image, ImageDraw
 import tkinter as tk
@@ -27,11 +27,13 @@ from tkinter import ttk, messagebox
 
 def get_app_dir() -> Path:
     if getattr(sys, 'frozen', False):
-        return Path(sys.executable).parent
-    return Path(__file__).parent
+        return Path(sys.executable).parent.resolve()
+    return Path(__file__).parent.resolve()
 
 
 _tk_root = None
+_tray_icon = None
+_settings_pending = threading.Event()
 
 
 class ValidationError(Exception):
@@ -565,11 +567,9 @@ def validate_server_url(url: str) -> None:
         log.error("server_url has no valid hostname")
         raise ValidationError("server_url has no valid hostname")
 
-    # HTTPS is always safe (token encrypted in transit)
     if scheme == "https":
         return
 
-    # HTTP — resolve hostname and check ALL IPs are private
     try:
         addrinfos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
     except socket.gaierror as e:
@@ -664,14 +664,14 @@ def load_config(show_error=False) -> dict:
 class Reporter:
     """Handles sending reports to the backend with exponential backoff."""
 
-    MAX_BACKOFF = 60  # seconds
-    PAUSE_AFTER_FAILURES = 5  # consecutive failures before long pause
-    PAUSE_DURATION = 300  # 5 minutes
+    MAX_BACKOFF = 60
+    PAUSE_AFTER_FAILURES = 10
+    PAUSE_DURATION = 120
 
     def __init__(self, server_url: str, token: str):
         self.endpoint = server_url.rstrip("/") + "/api/report"
         self.token = token
-        self.session = requests.Session()
+        self.session = requests.Session(impersonate="chrome131")
         self.session.headers.update({
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
@@ -704,7 +704,7 @@ class Reporter:
         if extra:
             payload["extra"] = extra
         try:
-            resp = self.session.post(self.endpoint, json=payload, timeout=10)
+            resp = self.session.post(self.endpoint, json=payload, timeout=15)
             if resp.status_code in (200, 201, 409):
                 # 409 = duplicate, still counts as success
                 self._consecutive_failures = 0
@@ -778,8 +778,8 @@ def create_tray_icon():
         os._exit(0)
 
     def open_settings(icon, item):
-        log.info("Opening settings...")
-        show_settings()
+        log.info("Opening settings (signaling main thread)...")
+        _settings_pending.set()
 
     def toggle_startup_action(icon, item):
         log.info("Toggling startup...")
@@ -816,18 +816,26 @@ def create_tray_icon():
     # Start status updates in a separate thread
     def update_status():
         log.info("Starting status update thread...")
+        consecutive_failures = 0
         while True:
             try:
-                # Check if server is reachable
                 is_online = False
                 try:
                     cfg = load_config()
-                    import requests
-                    response = requests.get(cfg["server_url"] + "/api/health", timeout=5)
+                    from curl_cffi import requests as cffi_requests
+                    response = cffi_requests.get(
+                        cfg["server_url"] + "/api/health",
+                        timeout=10,
+                        impersonate="chrome131",
+                    )
                     is_online = response.status_code == 200
+                    if is_online:
+                        consecutive_failures = 0
                 except Exception as e:
-                    is_online = False
-                    log.error(f"Failed to check server status: {str(e)}")
+                    consecutive_failures += 1
+                    if consecutive_failures < 3:
+                        is_online = True
+                    log.warning(f"Health check failed ({consecutive_failures}x): {str(e)}")
 
                 # Get current apps
                 current_apps = []
@@ -1015,9 +1023,7 @@ def show_settings():
 
     ttk.Button(frame, text="保存", command=save_config).grid(row=5, column=1, padx=10, pady=20, sticky="e")
 
-    # Force update to ensure window is visible
     root.update()
-    _tk_root.mainloop()
 
 
 def _get_startup_command() -> str:
@@ -1091,10 +1097,9 @@ def toggle_startup(icon, item):
 
 
 def show_first_run_setup():
-    """Show first run setup wizard."""
     config_path = get_app_dir() / "config.json"
     if not config_path.exists():
-        show_settings()
+        _settings_pending.set()
 
 
 # ---------------------------------------------------------------------------
@@ -1217,43 +1222,43 @@ def monitoring_loop():
                     time.sleep(interval)
         except Exception as e:
             log.error("Failed to load config or start monitoring: %s", e, exc_info=True)
-            # Show settings if config is missing or invalid
-            show_settings()
-            # Wait before retrying
+            _settings_pending.set()
             time.sleep(5)
 
 
 def main() -> None:
+    global _tk_root, _tray_icon
     log.info("Starting Live Dashboard Windows Agent")
 
-    try:
-        # Start monitoring loop in a separate thread
-        log.info("Starting monitoring loop thread")
-        monitor_thread = threading.Thread(target=monitoring_loop, daemon=True)
-        monitor_thread.start()
-        log.info("Monitoring loop thread started")
+    monitor_thread = threading.Thread(target=monitoring_loop, daemon=True)
+    monitor_thread.start()
+    log.info("Monitoring loop thread started")
 
-        # Start system tray
-        log.info("Creating system tray icon")
-        icon = create_tray_icon()
-        if icon is None:
-            log.error("Failed to create system tray icon, running in background")
-            # Keep the program running
-            while True:
-                import time
-                time.sleep(1)
-        else:
-            log.info("System tray icon created, starting run loop")
-            icon.run()
-            log.info("System tray icon run loop exited")
-    except Exception as e:
-        log.error("Unexpected error in main: %s", e, exc_info=True)
-        # Keep the program running even if there's an error
-        while True:
-            import time
-            time.sleep(1)
-    finally:
-        log.info("Agent stopped")
+    icon = create_tray_icon()
+    if icon is not None:
+        _tray_icon = icon
+        tray_thread = threading.Thread(target=icon.run, daemon=True)
+        tray_thread.start()
+        log.info("System tray icon started in background thread")
+
+    _tk_root = tk.Tk()
+    _tk_root.withdraw()
+
+    def poll_settings():
+        if _settings_pending.is_set():
+            _settings_pending.clear()
+            try:
+                show_settings()
+            except Exception as e:
+                log.error(f"Error showing settings: {e}")
+        _tk_root.after(200, poll_settings)
+
+    poll_settings()
+
+    try:
+        _tk_root.mainloop()
+    except KeyboardInterrupt:
+        log.info("Shutting down...")
 
 
 if __name__ == "__main__":

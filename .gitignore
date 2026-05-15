@@ -20,7 +20,6 @@ build/
 *.zip
 packages/backend/public/
 .trae/
-wiki/
 data/
 *.conf.bak
 merge-activities.js
