@@ -69,6 +69,7 @@
 
         <activity
             android:name=".FileShareActivity"
+            android:exported="true"
             android:label="分享文件"
             android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
             <intent-filter>
