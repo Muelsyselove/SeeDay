@@ -1,5 +1,6 @@
 package com.livedashboard.agent
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -20,7 +21,7 @@ class FileShareActivity : AppCompatActivity() {
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            padding = 48
+            setPadding(48, 48, 48, 48)
         }
 
         val tvFileName = TextView(this).apply {
@@ -37,7 +38,12 @@ class FileShareActivity : AppCompatActivity() {
 
         setContentView(layout)
 
-        val fileUri: Uri? = intent?.getParcelableExtra(Intent.EXTRA_STREAM)
+        val fileUri: Uri? = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra(Intent.EXTRA_STREAM)
+        }
         if (fileUri == null) {
             Toast.makeText(this, "未获取到文件", Toast.LENGTH_SHORT).show()
             finish()
@@ -63,15 +69,6 @@ class FileShareActivity : AppCompatActivity() {
     }
 
     private suspend fun uploadFile(fileUri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
-        val contentResolver = contentResolver
-        val fileSize = contentResolver.openAssetFileDescriptor(fileUri, "r")?.use {
-            it.declaredLength
-        } ?: -1L
-
-        if (fileSize > MAX_FILE_SIZE) {
-            return@withContext Result.failure(IllegalStateException("文件大小超过 2GB 限制"))
-        }
-
         val configManager = ConfigManager.getInstance(this@FileShareActivity)
         val client = MoveMineApiClient.getInstance(configManager)
         client.uploadFile(fileUri, this@FileShareActivity)
@@ -86,9 +83,5 @@ class FileShareActivity : AppCompatActivity() {
             }
         }
         return name
-    }
-
-    companion object {
-        private const val MAX_FILE_SIZE = 2147483648L
     }
 }

@@ -1,5 +1,6 @@
 package com.livedashboard.agent
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -141,7 +142,7 @@ class MoveMineApiClient(private val configManager: ConfigManager) {
         return if (parts.size > 1) parts[1] else deviceToken
     }
 
-    private fun queryFileName(contentResolver: android.content.ContentResolver, uri: Uri): String {
+    private fun queryFileName(contentResolver: ContentResolver, uri: Uri): String {
         var name = "unknown_file"
         contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
