@@ -648,12 +648,22 @@ def load_config(show_error=False) -> dict:
         ("interval_seconds", 5, 1, 300),
         ("heartbeat_seconds", 60, 10, 600),
         ("idle_threshold_seconds", 300, 30, 3600),
+        ("movemine_poll_interval", 10, 5, 300),
     ]:
         val = cfg.get(key, default)
         if not isinstance(val, (int, float)) or val < lo or val > hi:
             log.warning("config.json: '%s' invalid (%r), using %d", key, val, default)
             val = default
         cfg[key] = int(val)
+
+    # Validate string fields with defaults
+    for key, default in [
+        ("movemine_server_url", ""),
+        ("movemine_token", ""),
+        ("movemine_download_dir", str(get_app_dir() / "movemine_downloads")),
+    ]:
+        if key not in cfg or not isinstance(cfg[key], str):
+            cfg[key] = default
 
     return cfg
 
@@ -736,6 +746,111 @@ class Reporter:
         return self._current_backoff
 
 
+class MoveMineClient:
+    def __init__(self, server_url: str, token: str):
+        self.server_url = server_url.rstrip("/")
+        self.token = token
+        self.session = requests.Session(impersonate="chrome131")
+        self.session.headers.update({
+            "Authorization": f"Bearer {token}",
+        })
+
+    def poll_messages(self) -> list[dict]:
+        try:
+            resp = self.session.get(
+                f"{self.server_url}/api/movemine/messages",
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception as e:
+            log.warning("MoveMine poll_messages failed: %s", e)
+        return []
+
+    def ack_messages(self, message_ids: list[int]) -> bool:
+        try:
+            resp = self.session.post(
+                f"{self.server_url}/api/movemine/message/ack",
+                json={"message_ids": message_ids},
+                timeout=15,
+            )
+            return resp.status_code in (200, 201)
+        except Exception as e:
+            log.warning("MoveMine ack_messages failed: %s", e)
+        return False
+
+    def get_pending_files(self) -> list[dict]:
+        try:
+            resp = self.session.get(
+                f"{self.server_url}/api/movemine/files",
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception as e:
+            log.warning("MoveMine get_pending_files failed: %s", e)
+        return []
+
+    def download_file(self, file_id: int, download_dir: str) -> str | None:
+        try:
+            resp = self.session.get(
+                f"{self.server_url}/api/movemine/file/download/{file_id}",
+                timeout=30,
+                stream=True,
+            )
+            if resp.status_code != 200:
+                return None
+            file_name = None
+            content_disp = resp.headers.get("Content-Disposition", "")
+            if "filename=" in content_disp:
+                file_name = content_disp.split("filename=")[-1].strip('" ')
+            if not file_name:
+                file_name = f"file_{file_id}"
+            file_path = os.path.join(download_dir, file_name)
+            with open(file_path, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return file_path
+        except Exception as e:
+            log.warning("MoveMine download_file failed: %s", e)
+        return None
+
+    def ack_files(self, file_ids: list[int]) -> bool:
+        try:
+            resp = self.session.post(
+                f"{self.server_url}/api/movemine/file/ack",
+                json={"file_ids": file_ids},
+                timeout=15,
+            )
+            return resp.status_code in (200, 201)
+        except Exception as e:
+            log.warning("MoveMine ack_files failed: %s", e)
+        return False
+
+
+def load_local_messages() -> list[dict]:
+    path = get_app_dir() / "movemine_messages.json"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def save_local_messages(messages: list[dict]):
+    if len(messages) > 100:
+        messages = messages[-100:]
+    path = get_app_dir() / "movemine_messages.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(messages, f, ensure_ascii=False, indent=2)
+
+
+def add_local_messages(new_messages: list[dict]):
+    existing = load_local_messages()
+    existing.extend(new_messages)
+    save_local_messages(existing)
+
+
 # ---------------------------------------------------------------------------
 # System Tray and Settings
 # ---------------------------------------------------------------------------
@@ -790,11 +905,29 @@ def create_tray_icon():
         _privacy_mode = not _privacy_mode
         log.info("Privacy mode: %s", _privacy_mode)
 
+    def open_messages(icon, item):
+        log.info("Opening messages window...")
+        try:
+            show_messages_window()
+        except Exception as e:
+            log.error("Failed to open messages window: %s", e)
+
+    def open_download_dir(icon, item):
+        try:
+            cfg = load_config()
+            download_dir = cfg.get("movemine_download_dir", str(get_app_dir() / "movemine_downloads"))
+            os.makedirs(download_dir, exist_ok=True)
+            os.startfile(download_dir)
+        except Exception as e:
+            log.error("Failed to open download dir: %s", e)
+
     try:
         menu = pystray.Menu(
             pystray.MenuItem("设置", open_settings),
             pystray.MenuItem("开机自启", toggle_startup_action, checked=lambda item: is_startup_enabled()),
             pystray.MenuItem("隐私模式", toggle_privacy, checked=lambda item: _privacy_mode),
+            pystray.MenuItem("查看消息", open_messages),
+            pystray.MenuItem("已接收文件", open_download_dir),
             pystray.MenuItem("退出", exit_action)
         )
         log.info("Menu created")
@@ -927,7 +1060,7 @@ def show_settings():
         _tk_root.withdraw()
     root = tk.Toplevel(_tk_root)
     root.title("Live Dashboard Agent 设置")
-    root.geometry("450x400")
+    root.geometry("450x500")
     root.resizable(False, False)
 
     # Ensure window can be closed
@@ -955,7 +1088,11 @@ def show_settings():
             "token": "",
             "interval_seconds": 5,
             "heartbeat_seconds": 60,
-            "idle_threshold_seconds": 300
+            "idle_threshold_seconds": 300,
+            "movemine_server_url": "",
+            "movemine_token": "",
+            "movemine_poll_interval": 10,
+            "movemine_download_dir": str(get_app_dir() / "movemine_downloads"),
         }
 
     # Create input fields
@@ -987,6 +1124,26 @@ def show_settings():
     idle_var = tk.IntVar(value=config.get("idle_threshold_seconds", 300))
     ttk.Entry(frame, textvariable=idle_var, width=10).grid(row=4, column=1, padx=10, pady=10, sticky="w")
 
+    # MoveMine Server URL
+    ttk.Label(frame, text="MoveMine 服务器URL:").grid(row=5, column=0, padx=10, pady=10, sticky="e")
+    movemine_server_url_var = tk.StringVar(value=config.get("movemine_server_url", ""))
+    ttk.Entry(frame, textvariable=movemine_server_url_var, width=30).grid(row=5, column=1, padx=10, pady=10)
+
+    # MoveMine Token
+    ttk.Label(frame, text="MoveMine Token:").grid(row=6, column=0, padx=10, pady=10, sticky="e")
+    movemine_token_var = tk.StringVar(value=config.get("movemine_token", ""))
+    ttk.Entry(frame, textvariable=movemine_token_var, width=30).grid(row=6, column=1, padx=10, pady=10)
+
+    # MoveMine Poll Interval
+    ttk.Label(frame, text="消息轮询间隔(秒):").grid(row=7, column=0, padx=10, pady=10, sticky="e")
+    movemine_poll_interval_var = tk.IntVar(value=config.get("movemine_poll_interval", 10))
+    ttk.Entry(frame, textvariable=movemine_poll_interval_var, width=10).grid(row=7, column=1, padx=10, pady=10, sticky="w")
+
+    # MoveMine Download Dir
+    ttk.Label(frame, text="文件下载目录:").grid(row=8, column=0, padx=10, pady=10, sticky="e")
+    movemine_download_dir_var = tk.StringVar(value=config.get("movemine_download_dir", str(get_app_dir() / "movemine_downloads")))
+    ttk.Entry(frame, textvariable=movemine_download_dir_var, width=30).grid(row=8, column=1, padx=10, pady=10)
+
     # Save button
     def save_config():
         new_config = {
@@ -994,7 +1151,11 @@ def show_settings():
             "token": token_var.get(),
             "interval_seconds": interval_var.get(),
             "heartbeat_seconds": heartbeat_var.get(),
-            "idle_threshold_seconds": idle_var.get()
+            "idle_threshold_seconds": idle_var.get(),
+            "movemine_server_url": movemine_server_url_var.get(),
+            "movemine_token": movemine_token_var.get(),
+            "movemine_poll_interval": movemine_poll_interval_var.get(),
+            "movemine_download_dir": movemine_download_dir_var.get(),
         }
 
         # Validate config
@@ -1021,7 +1182,7 @@ def show_settings():
             # 不显示弹窗，直接在控制台输出错误
             log.error(f"保存配置失败: {str(e)}")
 
-    ttk.Button(frame, text="保存", command=save_config).grid(row=5, column=1, padx=10, pady=20, sticky="e")
+    ttk.Button(frame, text="保存", command=save_config).grid(row=9, column=1, padx=10, pady=20, sticky="e")
 
     root.update()
 
@@ -1100,6 +1261,83 @@ def show_first_run_setup():
     config_path = get_app_dir() / "config.json"
     if not config_path.exists():
         _settings_pending.set()
+
+
+def movemine_loop():
+    while True:
+        try:
+            cfg = load_config()
+            server_url = cfg.get("movemine_server_url", "")
+            token = cfg.get("movemine_token", "")
+            if not server_url or not token:
+                time.sleep(cfg.get("movemine_poll_interval", 10))
+                continue
+
+            client = MoveMineClient(server_url, token)
+
+            messages = client.poll_messages()
+            if messages:
+                add_local_messages(messages)
+                ids = [m["id"] for m in messages]
+                client.ack_messages(ids)
+                log.info("MoveMine: Received %d messages", len(messages))
+
+            files = client.get_pending_files()
+            download_dir = cfg.get("movemine_download_dir", str(get_app_dir() / "movemine_downloads"))
+            os.makedirs(download_dir, exist_ok=True)
+            ack_ids = []
+            for f in files:
+                saved = client.download_file(f["id"], download_dir)
+                if saved:
+                    ack_ids.append(f["id"])
+                    log.info("MoveMine: Downloaded file %s", f.get("file_name", ""))
+            if ack_ids:
+                client.ack_files(ack_ids)
+
+            time.sleep(cfg.get("movemine_poll_interval", 10))
+        except Exception as e:
+            log.error("MoveMine loop error: %s", e)
+            time.sleep(30)
+
+
+def show_messages_window():
+    global _tk_root
+    if _tk_root is None:
+        _tk_root = tk.Tk()
+        _tk_root.withdraw()
+    win = tk.Toplevel(_tk_root)
+    win.title("MoveMine 消息")
+    win.geometry("600x500")
+    win.resizable(True, True)
+
+    messages = load_local_messages()
+
+    frame = ttk.Frame(win)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    canvas = tk.Canvas(frame)
+    scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=canvas.yview)
+    scroll_frame = ttk.Frame(canvas)
+
+    scroll_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    for msg in reversed(messages):
+        source = msg.get("source_app", "")
+        sender = msg.get("sender", "")
+        content = msg.get("content", "")
+        timestamp = msg.get("timestamp", "")
+        text = f"[{source}] {sender}: {content} ({timestamp})"
+        ttk.Label(scroll_frame, text=text, wraplength=550).pack(anchor="w", padx=10, pady=2)
+
+    ttk.Button(win, text="关闭", command=win.destroy).pack(pady=10)
 
 
 # ---------------------------------------------------------------------------
@@ -1233,6 +1471,10 @@ def main() -> None:
     monitor_thread = threading.Thread(target=monitoring_loop, daemon=True)
     monitor_thread.start()
     log.info("Monitoring loop thread started")
+
+    movemine_thread = threading.Thread(target=movemine_loop, daemon=True)
+    movemine_thread.start()
+    log.info("MoveMine loop thread started")
 
     icon = create_tray_icon()
     if icon is not None:

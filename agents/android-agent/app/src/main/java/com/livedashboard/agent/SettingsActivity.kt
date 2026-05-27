@@ -7,6 +7,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,6 +29,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var etReportInterval: EditText
     private lateinit var btnTestConnection: Button
     private lateinit var tvTestResult: TextView
+    private lateinit var etMovemineServerUrl: EditText
+    private lateinit var etMovemineToken: EditText
+    private lateinit var switchMessageForward: SwitchCompat
+    private lateinit var switchFileShare: SwitchCompat
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,11 +46,19 @@ class SettingsActivity : AppCompatActivity() {
         etReportInterval = findViewById(R.id.et_report_interval)
         btnTestConnection = findViewById(R.id.btn_test_connection)
         tvTestResult = findViewById(R.id.tv_test_result)
+        etMovemineServerUrl = findViewById(R.id.et_movemine_server_url)
+        etMovemineToken = findViewById(R.id.et_movemine_token)
+        switchMessageForward = findViewById(R.id.switch_message_forward)
+        switchFileShare = findViewById(R.id.switch_file_share)
 
         val config = configManager.getConfig()
         etServerUrl.setText(config.serverUrl)
         etDeviceToken.setText(config.deviceToken)
         etReportInterval.setText(config.reportIntervalSeconds.toString())
+        etMovemineServerUrl.setText(config.movemineServerUrl)
+        etMovemineToken.setText(config.movemineToken)
+        switchMessageForward.isChecked = config.messageForwardEnabled
+        switchFileShare.isChecked = config.fileShareEnabled
 
         findViewById<Button>(R.id.btn_save).setOnClickListener {
             saveConfig()
@@ -175,6 +188,13 @@ class SettingsActivity : AppCompatActivity() {
         configManager.saveServerUrl(serverUrl)
         configManager.saveDeviceToken(deviceToken)
         configManager.saveReportInterval(interval)
+
+        val movemineServerUrl = etMovemineServerUrl.text.toString().trim()
+        val movemineToken = etMovemineToken.text.toString().trim()
+        configManager.saveMovemineServerUrl(movemineServerUrl)
+        configManager.saveMovemineToken(movemineToken)
+        configManager.saveMessageForwardEnabled(switchMessageForward.isChecked)
+        configManager.saveFileShareEnabled(switchFileShare.isChecked)
 
         Toast.makeText(this, "配置已保存", Toast.LENGTH_SHORT).show()
         finish()
