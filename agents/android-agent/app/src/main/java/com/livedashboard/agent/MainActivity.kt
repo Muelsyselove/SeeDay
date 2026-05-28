@@ -1,7 +1,7 @@
 package com.livedashboard.agent
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -21,6 +21,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvLastReport: TextView
     private lateinit var tvServerStatus: TextView
     private lateinit var switchMonitor: Switch
+    private lateinit var switchMessageForward: Switch
+    private lateinit var switchFileShare: Switch
+    private lateinit var tvMovemineStatus: TextView
 
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -41,6 +44,9 @@ class MainActivity : AppCompatActivity() {
         tvLastReport = findViewById(R.id.tv_last_report)
         tvServerStatus = findViewById(R.id.tv_server_status)
         switchMonitor = findViewById(R.id.switch_monitor)
+        switchMessageForward = findViewById(R.id.switch_message_forward)
+        switchFileShare = findViewById(R.id.switch_file_share)
+        tvMovemineStatus = findViewById(R.id.tv_movemine_status)
 
         findViewById<View>(R.id.btn_settings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
@@ -69,6 +75,21 @@ class MainActivity : AppCompatActivity() {
                 stopMonitorService()
                 configManager.saveMonitoringEnabled(false)
             }
+        }
+
+        val config = configManager.getConfig()
+        switchMessageForward.setOnCheckedChangeListener { _, isChecked ->
+            configManager.saveMessageForwardEnabled(isChecked)
+            if (isChecked) {
+                if (!isNotificationListenerEnabled()) {
+                    Toast.makeText(this, "请开启通知监听权限以转发消息", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                }
+            }
+        }
+
+        switchFileShare.setOnCheckedChangeListener { _, isChecked ->
+            configManager.saveFileShareEnabled(isChecked)
         }
     }
 
@@ -145,13 +166,43 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        val movemineConfigured = config.movemineServerUrl.isNotEmpty() && config.movemineToken.isNotEmpty()
+        val notificationEnabled = isNotificationListenerEnabled()
+
+        switchMessageForward.setOnCheckedChangeListener(null)
+        switchMessageForward.isChecked = config.messageForwardEnabled
+        switchMessageForward.setOnCheckedChangeListener { _, isChecked ->
+            configManager.saveMessageForwardEnabled(isChecked)
+            if (isChecked && !isNotificationListenerEnabled()) {
+                Toast.makeText(this, "请开启通知监听权限以转发消息", Toast.LENGTH_LONG).show()
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
+        }
+
+        switchFileShare.setOnCheckedChangeListener(null)
+        switchFileShare.isChecked = config.fileShareEnabled
+        switchFileShare.setOnCheckedChangeListener { _, isChecked ->
+            configManager.saveFileShareEnabled(isChecked)
+        }
+
+        tvMovemineStatus.text = when {
+            !movemineConfigured -> "未配置"
+            !notificationEnabled -> "通知监听未开启"
+            MessageListenerService.isServiceRunning -> "运行中"
+            else -> "已就绪"
+        }
     }
 
     private fun startMonitorService() {
-        val intent = Intent(this, MonitorService::class.java).apply {
-            action = MonitorService.ACTION_START
+        try {
+            val intent = Intent(this, MonitorService::class.java).apply {
+                action = MonitorService.ACTION_START
+            }
+            startForegroundService(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "启动监控服务失败：${e.message}", Toast.LENGTH_LONG).show()
         }
-        startForegroundService(intent)
     }
 
     private fun stopMonitorService() {
@@ -162,14 +213,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val am = getSystemService(ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
-        val enabledServices = am.getEnabledAccessibilityServiceList(
-            AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-        )
-        return enabledServices.any { serviceInfo ->
-            serviceInfo.resolveInfo.serviceInfo.packageName == packageName &&
-            serviceInfo.resolveInfo.serviceInfo.name.contains("MonitorAccessibilityService")
+        val expectedComponent = ComponentName(this, MonitorAccessibilityService::class.java)
+        val expectedFlat = expectedComponent.flattenToString()
+        try {
+            val enabledServices = Settings.Secure.getString(
+                contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ) ?: return false
+            val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
+            colonSplitter.setString(enabledServices)
+            while (colonSplitter.hasNext()) {
+                val componentStr = colonSplitter.next()
+                if (componentStr.equals(expectedFlat, ignoreCase = true)) {
+                    return true
+                }
+            }
+        } catch (_: Exception) {
         }
+        return false
+    }
+
+    private fun isNotificationListenerEnabled(): Boolean {
+        val expectedComponent = ComponentName(this, MessageListenerService::class.java)
+        val expectedFlat = expectedComponent.flattenToString()
+        try {
+            val enabledListeners = Settings.Secure.getString(
+                contentResolver,
+                "enabled_notification_listeners"
+            ) ?: return false
+            val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
+            colonSplitter.setString(enabledListeners)
+            while (colonSplitter.hasNext()) {
+                val componentStr = colonSplitter.next()
+                if (componentStr.equals(expectedFlat, ignoreCase = true)) {
+                    return true
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return false
     }
 
     private fun isUsageStatsGranted(): Boolean {
