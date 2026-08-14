@@ -125,7 +125,7 @@ Windows Agent 配置请参考：[Agent 配置指南 Wiki](https://github.com/Mue
 | `DEVICE_TOKEN_1` | 是 | 设备 Token，格式：`token:id:name:platform` |
 | `AI_API_URL` | 否 | AI API 端点 |
 | `AI_API_KEY` | 否 | AI API 密钥 |
-| `AI_MODEL` | 否 | AI 模型名称（默认 gpt-4o-mini） |
+| `AI_MODEL` | 否 | AI 模型名称（默认 deepseek-v4-flash） |
 
 ## 许可证
 

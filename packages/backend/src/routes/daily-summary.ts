@@ -64,7 +64,7 @@ export function handleDailySummaryDebug(url: URL): Response {
 
   return Response.json({
     date,
-    model: process.env.AI_MODEL || "deepseek-chat",
+    model: process.env.AI_MODEL || "deepseek-v4-flash",
     api_url: process.env.AI_API_URL || "https://api.deepseek.com/chat/completions",
     api_key_set: !!process.env.AI_API_KEY,
     system_prompt: SYSTEM_PROMPT,

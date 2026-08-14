@@ -12,11 +12,13 @@ import "@/themes/bold/theme";
 import "@/themes/inferno/theme";
 import "@/themes/persona/theme";
 import "@/themes/inkwash/theme";
+import "@/themes/arknights/theme";
 
 // Import layouts to register them
 import "@/layouts/DefaultLayout";
 import "@/layouts/PersonaLayout";
 import "@/layouts/InkLayout";
+import "@/layouts/ArknightsLayout";
 
 export default function HomePage() {
   const { currentTheme, themes, switchTheme } = useTheme();

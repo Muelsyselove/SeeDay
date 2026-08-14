@@ -3,6 +3,8 @@ package com.livedashboard.agent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.Log
 
 class BootReceiver : BroadcastReceiver() {
 
@@ -13,9 +15,17 @@ class BootReceiver : BroadcastReceiver() {
         if (!configManager.getConfig().isMonitoringEnabled) return
         if (!configManager.isConfigured()) return
 
-        val serviceIntent = Intent(context, MonitorService::class.java).apply {
-            action = MonitorService.ACTION_START
+        try {
+            val serviceIntent = Intent(context, MonitorService::class.java).apply {
+                action = MonitorService.ACTION_START
+            }
+            context.startForegroundService(serviceIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start MonitorService on boot", e)
         }
-        context.startForegroundService(serviceIntent)
+    }
+
+    companion object {
+        private const val TAG = "BootReceiver"
     }
 }

@@ -48,6 +48,7 @@ html:not([data-theme]) {
 @import "../themes/inferno/theme.css";
 @import "../themes/persona/theme.css";
 @import "../themes/inkwash/theme.css";
+@import "../themes/arknights/theme.css";
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; }
 html, body { height: 100%; overflow: hidden; overflow-x: hidden; }

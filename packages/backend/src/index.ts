@@ -1,7 +1,30 @@
 import { resolve, normalize, relative, sep } from "node:path";
-import { realpathSync } from "node:fs";
+import { realpathSync, readFileSync } from "node:fs";
 import { realpath as realpathAsync } from "node:fs/promises";
+
+// Load .env file from project root (SeeDay/)
+// import.meta.dirname is /.../backend/src/ when running via "bun run src/index.ts"
+const envPath = resolve(import.meta.dirname || ".", "../../../.env");
+try {
+  const envText = readFileSync(envPath, "utf-8");
+  for (const line of envText.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const value = trimmed.slice(eqIdx + 1).trim();
+    if (key && process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+  console.log(`[env] Loaded .env from ${envPath}`);
+} catch (e: any) {
+  console.warn(`[env] Failed to load .env from ${envPath}: ${e.message}`);
+}
+
 import { handleReport } from "./routes/report";
+import { handleOffline } from "./routes/offline";
 import { handleCurrent } from "./routes/current";
 import { handleTimeline } from "./routes/timeline";
 import { handleHealth } from "./routes/health";
@@ -56,6 +79,8 @@ const server = Bun.serve({
         console.log(`[report] Request from ${clientIp} | User-Agent: ${req.headers.get("user-agent") || "unknown"}`);
         response = await handleReport(req);
         console.log(`[report] Response: ${response.status}`);
+      } else if (pathname === "/api/report/offline" && req.method === "POST") {
+        response = await handleOffline(req);
       } else if (pathname === "/api/current" && req.method === "GET") {
         const clientIp =
           req.headers.get("x-real-ip") ||

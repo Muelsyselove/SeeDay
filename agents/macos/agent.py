@@ -10,10 +10,12 @@ Permissions:
 """
 
 import ctypes
+import atexit
 import ipaddress
 import json
 import logging
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -36,6 +38,33 @@ def get_app_dir() -> Path:
 
 
 _tk_root = None
+_shutdown_reporter = None
+
+
+def _send_offline_if_possible():
+    global _shutdown_reporter
+    if _shutdown_reporter is not None:
+        try:
+            _shutdown_reporter.send_offline()
+        except Exception:
+            pass
+
+
+def _register_shutdown_handlers():
+    atexit.register(_send_offline_if_possible)
+
+    def _signal_handler(signum, frame):
+        _send_offline_if_possible()
+        sys.exit(0)
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(sig, _signal_handler)
+        except Exception:
+            pass
+
+
+_register_shutdown_handlers()
 
 
 class ValidationError(Exception):
@@ -617,6 +646,18 @@ class Reporter:
     def backoff(self) -> float:
         return self._current_backoff
 
+    def send_offline(self) -> bool:
+        offline_url = self.endpoint.rsplit("/", 1)[0] + "/api/report/offline"
+        try:
+            resp = self.session.post(offline_url, timeout=5)
+            if resp.status_code in (200, 201):
+                log.info("Offline notification sent")
+                return True
+            log.warning("Offline notification returned %d: %s", resp.status_code, resp.text[:200])
+        except requests.RequestException as e:
+            log.warning("Offline notification failed: %s", e)
+        return False
+
 
 # ---------------------------------------------------------------------------
 # Auto-start via LaunchAgents
@@ -815,6 +856,7 @@ class LiveDashboardApp(rumps.App):
     @rumps.clicked("退出")
     def on_quit(self, _):
         log.info("Exiting...")
+        _send_offline_if_possible()
         rumps.quit_application()
 
     def update_status(self, online: bool, fg_app: str = ""):
@@ -835,10 +877,12 @@ class LiveDashboardApp(rumps.App):
 # Main loop
 # ---------------------------------------------------------------------------
 def monitoring_loop():
+    global _shutdown_reporter
     while True:
         try:
             cfg = load_config(show_error=True)
             reporter = Reporter(cfg["server_url"], cfg["token"])
+            _shutdown_reporter = reporter
 
             interval = cfg["interval_seconds"]
             heartbeat_interval = cfg["heartbeat_seconds"]
@@ -940,12 +984,15 @@ def monitoring_loop():
 
                 except KeyboardInterrupt:
                     log.info("Shutting down monitoring loop")
+                    _send_offline_if_possible()
+                    _shutdown_reporter = None
                     return
                 except Exception as e:
                     log.error("Unexpected error in monitoring loop: %s", e, exc_info=True)
                     time.sleep(interval)
         except Exception as e:
             log.error("Failed to load config or start monitoring: %s", e, exc_info=True)
+            _shutdown_reporter = None
             show_settings()
             time.sleep(5)
 

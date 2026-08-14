@@ -29,10 +29,15 @@ class MonitorService : Service() {
         apiClient = ApiClient.getInstance(configManager)
         createNotificationChannel()
         val notification = buildNotification("监控服务运行中")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "startForeground failed in onCreate", e)
+            stopSelf()
         }
     }
 
@@ -40,6 +45,11 @@ class MonitorService : Service() {
         when (intent?.action) {
             ACTION_START -> startMonitoring()
             ACTION_STOP -> stopMonitoring()
+            null -> {
+                if (configManager.getConfig().isMonitoringEnabled) {
+                    startMonitoring()
+                }
+            }
         }
         return START_STICKY
     }
@@ -61,25 +71,37 @@ class MonitorService : Service() {
 
         reportJob = serviceScope.launch {
             while (isActive) {
-                performReport()
+                try {
+                    performReport()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "performReport failed", e)
+                    safeUpdateNotification("运行中 | 上报异常: ${e.message?.take(30)}")
+                }
                 delay(interval)
             }
         }
 
-        updateNotification("监控服务运行中 - 上报间隔 ${configManager.getConfig().reportIntervalSeconds}s")
+        safeUpdateNotification("监控服务运行中 - 上报间隔 ${configManager.getConfig().reportIntervalSeconds}s")
     }
 
     private fun stopMonitoring() {
         reportJob?.cancel()
         reportJob = null
         isMonitorRunning = false
-        updateNotification("监控服务已暂停")
+        safeUpdateNotification("监控服务已暂停")
         configManager.saveMonitoringEnabled(false)
     }
 
     private fun isScreenOn(): Boolean {
-        val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        return pm.isInteractive
+        return try {
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            pm.isInteractive
+        } catch (e: Exception) {
+            Log.w(TAG, "isScreenOn check failed", e)
+            true
+        }
     }
 
     private val BACKGROUND_BLACKLIST = setOf(
@@ -185,11 +207,17 @@ class MonitorService : Service() {
         if (appId.isEmpty()) {
             val a11yRunning = MonitorAccessibilityService.isServiceRunning
             val a11yPkg = MonitorAccessibilityService.currentPackageName
-            updateNotification("运行中 | 无前台应用 (a11y=$a11yRunning pkg=$a11yPkg)")
+            safeUpdateNotification("运行中 | 无前台应用 (a11y=$a11yRunning pkg=$a11yPkg)")
             return
         }
 
-        val extra = apiClient.getBatteryInfo(this).copy(screenOn = isScreenOn())
+        val extra = try {
+            apiClient.getBatteryInfo(this).copy(screenOn = isScreenOn())
+        } catch (e: Exception) {
+            Log.w(TAG, "getBatteryInfo failed", e)
+            ExtraInfo()
+        }
+
         val c = java.util.Calendar.getInstance()
         val timestamp = "${c.get(java.util.Calendar.YEAR)};${c.get(java.util.Calendar.MONTH) + 1};${c.get(java.util.Calendar.DAY_OF_MONTH)};${String.format("%02d", c.get(java.util.Calendar.HOUR_OF_DAY))}:${String.format("%02d", c.get(java.util.Calendar.MINUTE))}"
 
@@ -214,7 +242,7 @@ class MonitorService : Service() {
             ))
         }
 
-        updateNotification("运行中 | 上报中: $appId +${bgApps.size}后台")
+        safeUpdateNotification("运行中 | 上报中: $appId +${bgApps.size}后台")
         val result = apiClient.report(payloads, this)
         if (result.isSuccess) {
             val lastTime = apiClient.getLastReportTime()
@@ -222,11 +250,11 @@ class MonitorService : Service() {
                 val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
                 sdf.format(java.util.Date(lastTime))
             } else "--:--:--"
-            updateNotification("运行中 | 上次上报: $timeStr")
+            safeUpdateNotification("运行中 | 上次上报: $timeStr")
         } else {
             val errMsg = result.exceptionOrNull()?.message?.take(50) ?: "unknown"
             Log.e(TAG, "performReport: report failed: $errMsg")
-            updateNotification("运行中 | 上报失败: $errMsg")
+            safeUpdateNotification("运行中 | 上报失败: $errMsg")
         }
     }
 
@@ -256,13 +284,20 @@ class MonitorService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setSilent(true)
             .build()
     }
 
     private fun updateNotification(text: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun safeUpdateNotification(text: String) {
+        try {
+            updateNotification(text)
+        } catch (e: Exception) {
+            Log.w(TAG, "updateNotification failed", e)
+        }
     }
 
     companion object {

@@ -4,9 +4,11 @@ import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.Switch
 import android.widget.TextView
@@ -201,15 +203,21 @@ class MainActivity : AppCompatActivity() {
             }
             startForegroundService(intent)
         } catch (e: Exception) {
+            Log.e(TAG, "startMonitorService failed", e)
             Toast.makeText(this, "启动监控服务失败：${e.message}", Toast.LENGTH_LONG).show()
+            switchMonitor.isChecked = false
         }
     }
 
     private fun stopMonitorService() {
-        val intent = Intent(this, MonitorService::class.java).apply {
-            action = MonitorService.ACTION_STOP
+        try {
+            val intent = Intent(this, MonitorService::class.java).apply {
+                action = MonitorService.ACTION_STOP
+            }
+            startService(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "stopMonitorService failed", e)
         }
-        startService(intent)
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
@@ -255,12 +263,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isUsageStatsGranted(): Boolean {
-        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOps.unsafeCheckOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    packageName
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    packageName
+                )
+            }
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            Log.w(TAG, "isUsageStatsGranted check failed", e)
+            false
+        }
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
     }
 }

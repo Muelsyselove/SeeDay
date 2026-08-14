@@ -5,6 +5,7 @@ Monitors the foreground window and reports app usage to the dashboard backend.
 
 import ctypes
 import ctypes.wintypes
+import atexit
 import ipaddress
 import json
 import logging
@@ -34,6 +35,42 @@ def get_app_dir() -> Path:
 _tk_root = None
 _tray_icon = None
 _settings_pending = threading.Event()
+_shutdown_reporter = None
+
+
+def _send_offline_if_possible():
+    global _shutdown_reporter
+    if _shutdown_reporter is not None:
+        try:
+            _shutdown_reporter.send_offline()
+        except Exception:
+            pass
+
+
+def _register_windows_shutdown_handler():
+    if sys.platform != "win32":
+        return
+    try:
+        CTRL_SHUTDOWN_EVENT = 6
+        CTRL_LOGOFF_EVENT = 5
+        CTRL_CLOSE_EVENT = 2
+
+        handler_type = ctypes.WINFUNCTYPE(ctypes.wintypes.BOOL, ctypes.wintypes.DWORD)
+
+        @handler_type
+        def _console_ctrl_handler(ctrl_type):
+            if ctrl_type in (CTRL_SHUTDOWN_EVENT, CTRL_LOGOFF_EVENT, CTRL_CLOSE_EVENT):
+                _send_offline_if_possible()
+                return True
+            return False
+
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(_console_ctrl_handler, True)
+    except Exception:
+        pass
+
+
+atexit.register(_send_offline_if_possible)
+_register_windows_shutdown_handler()
 
 
 class ValidationError(Exception):
@@ -745,6 +782,18 @@ class Reporter:
     def backoff(self) -> float:
         return self._current_backoff
 
+    def send_offline(self) -> bool:
+        offline_url = self.endpoint.rsplit("/", 1)[0] + "/api/report/offline"
+        try:
+            resp = self.session.post(offline_url, timeout=5)
+            if resp.status_code in (200, 201):
+                log.info("Offline notification sent")
+                return True
+            log.warning("Offline notification returned %d: %s", resp.status_code, resp.text[:200])
+        except requests.RequestException as e:
+            log.warning("Offline notification failed: %s", e)
+        return False
+
 
 class MoveMineClient:
     def __init__(self, server_url: str, token: str):
@@ -888,6 +937,7 @@ def create_tray_icon():
     # Define tray menu
     def exit_action(icon, item):
         log.info("Exiting...")
+        _send_offline_if_possible()
         icon.stop()
         import os
         os._exit(0)
@@ -1345,10 +1395,12 @@ def show_messages_window():
 # ---------------------------------------------------------------------------
 def monitoring_loop():
     """Main monitoring loop."""
+    global _shutdown_reporter
     while True:
         try:
             cfg = load_config(show_error=True)
             reporter = Reporter(cfg["server_url"], cfg["token"])
+            _shutdown_reporter = reporter
 
             interval = cfg["interval_seconds"]
             heartbeat_interval = cfg["heartbeat_seconds"]
@@ -1454,12 +1506,15 @@ def monitoring_loop():
 
                 except KeyboardInterrupt:
                     log.info("Shutting down monitoring loop")
+                    _send_offline_if_possible()
+                    _shutdown_reporter = None
                     return
                 except Exception as e:
                     log.error("Unexpected error in monitoring loop: %s", e, exc_info=True)
                     time.sleep(interval)
         except Exception as e:
             log.error("Failed to load config or start monitoring: %s", e, exc_info=True)
+            _shutdown_reporter = None
             _settings_pending.set()
             time.sleep(5)
 

@@ -4,20 +4,27 @@ import { writeFileSync, unlinkSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-const AI_API_URL = process.env.AI_API_URL || "https://api.deepseek.com/chat/completions";
-const AI_API_KEY = process.env.AI_API_KEY || "";
-const AI_MODEL = process.env.AI_MODEL || "deepseek-chat";
+function getAIConfig() {
+  return {
+    AI_API_URL: process.env.AI_API_URL || "https://api.deepseek.com/chat/completions",
+    AI_API_KEY: process.env.AI_API_KEY || "",
+    AI_MODEL: process.env.AI_MODEL || "deepseek-v4-flash",
+  };
+}
 
-export const SYSTEM_PROMPT = `你是一个温暖的日记助手。根据用户今天在各设备上的应用使用记录，写一段约300字的中文日记。
+export const SYSTEM_PROMPT = `你是一位细腻温暖的日记作者。请根据用户今天在各设备上的应用使用记录，写一段有温度的中文日记。
 
-要求：
-- 像写日记一样，按时间顺序叙述这一天
-- 语气温暖、自然，像朋友在记录生活
-- 提及具体的应用和内容，让日记有画面感
-- 可以适当加入感受和想象，但基于真实数据
+结构要求（严格遵循）：
+1. 前半部分（约60-80字）：简要回顾今天的关键活动，按时间顺序提及2-3个代表性应用或场景即可，不要流水账式罗列所有应用。
+2. 后半部分（约60-80字）：基于这些活动，写出有深度、有情感的人文感悟。可以是关于生活节奏的思考、对某个瞬间的感动、对平衡工作与娱乐的体会、或是对当下状态的温柔觉察。要有诗意和温度，像一位懂你的朋友在深夜与你促膝长谈。
+
+整体要求：
+- 语气温暖、自然、有共鸣感，像知己在倾诉
+- 不要列清单，要写成连贯的1-2个段落
 - 不要使用 emoji
-- 不要列清单，要写成连贯的段落
-- 字数约300字`;
+- 总字数严格控制在180-220字之间，不要过长
+- 感悟部分必须占50字以上，这是重点`;
+
 
 export interface ActivityRow {
   device_name: string;
@@ -140,6 +147,8 @@ async function wgetRequest(url: string, options: { method: string; headers: Reco
 }
 
 export async function generateDailySummary(force: boolean = false, targetDate?: string): Promise<void> {
+  const { AI_API_URL, AI_API_KEY, AI_MODEL } = getAIConfig();
+
   console.log(`[ai-summary] generateDailySummary called, force=${force}, targetDate=${targetDate}`);
 
   if (!AI_API_KEY) {
@@ -183,8 +192,8 @@ export async function generateDailySummary(force: boolean = false, targetDate?: 
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      max_tokens: 800,
-      temperature: 1.3,
+      max_tokens: 1024,
+      temperature: 0.7,
       stream: false,
     });
 

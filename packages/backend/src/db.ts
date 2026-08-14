@@ -223,6 +223,10 @@ export const getTimelineByDateAndDevice = db.prepare(`
   ORDER BY started_at ASC
 `);
 
+export const markDeviceOffline = db.prepare(`
+  UPDATE device_states SET is_online = 0 WHERE device_id = ?
+`);
+
 export const markOfflineDevices = db.prepare(`
   UPDATE device_states SET is_online = 0
   WHERE is_online = 1
