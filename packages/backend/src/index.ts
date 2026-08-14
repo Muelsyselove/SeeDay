@@ -6,6 +6,7 @@ import { handleCurrent } from "./routes/current";
 import { handleTimeline } from "./routes/timeline";
 import { handleHealth } from "./routes/health";
 import { handleDailySummary, handleGenerateDailySummary, handleDailySummaryDebug } from "./routes/daily-summary";
+import { handleDashboard } from "./routes/dashboard";
 
 // Start scheduled cleanup tasks (import triggers setInterval registration)
 import "./services/cleanup";
@@ -64,6 +65,8 @@ const server = Bun.serve({
         response = handleCurrent(clientIp, req.headers.get("user-agent") || undefined);
       } else if (pathname === "/api/timeline" && req.method === "GET") {
         response = handleTimeline(url);
+      } else if (pathname === "/api/dashboard" && req.method === "GET") {
+        response = await handleDashboard(req, url);
       } else if (pathname === "/api/health" && req.method === "GET") {
         response = handleHealth();
       } else if (pathname === "/api/daily-summary" && req.method === "GET") {

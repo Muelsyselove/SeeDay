@@ -23,6 +23,7 @@
 | [Agent 配置指南](https://github.com/Muelsyselove/SeeDay/wiki/Agent配置指南) | Agent 下载、安装、配置详解 |
 | [文件说明](https://github.com/Muelsyselove/SeeDay/wiki/文件说明) | 哪些文件需要部署，哪些可以忽略 |
 | [AI 部署教程](https://github.com/Muelsyselove/SeeDay/wiki/AI部署教程) | 使用 AI 工具进行自动部署 |
+| [API 接口文档](wiki/API.md) | HTTP API 说明（含 `/api/dashboard` 结构化数据接口，可公开接入） |
 
 ---
 
