@@ -10,7 +10,8 @@ Base URL：`http(s)://<你的服务器地址>[:PORT]`（默认端口 `3000`，�
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/dashboard` | **结构化仪表盘数据（推荐）** — 一次返回前端 UI 展示的全部信息 |
+| GET | `/api/dashboard` | **结构化仪表盘数据** — 一次返回前端 UI 展示的全部原始/半加工信息 |
+| GET | `/api/dashboard/view` | **渲染级视图数据（推荐第三方使用）** — 返回与前端展示完全一致的加工后数据（中文文案、格式化时间、颜色、分组、徽标），只需 HTML/CSS 即可复刻页面 |
 | GET | `/api/current` | 实时状态：设备、正在运行的应用、最近活动、在线人数 |
 | GET | `/api/timeline` | 某一天的活动时间线（分段 + 按设备/应用汇总） |
 | GET | `/api/daily-summary` | 获取某天的 AI 每日总结 |
@@ -156,6 +157,157 @@ curl "https://example.com/api/dashboard?date=2026-08-14&tz=-480&device_id=my-pc"
 - **进行中的活动**：`ended_at` 为 `null` 且 `duration_minutes` 随时间增长。
 - **时间格式**：`started_at` / `ended_at` 为设备本地时间字符串（`YYYY-MM-DD HH:MM:SS`）；`server_time` 为 UTC ISO 字符串。
 - **调用频率建议**：数据粒度为 Agent 心跳级，建议 10 秒以上轮询一次（与前端一致）。
+
+---
+
+## GET /api/dashboard/view
+
+渲染级（视图模型）接口：输出与前端 UI **完全一致、已经过全部业务加工** 的展示数据。前端所做的处理（中文格式化时间、活动描述文案、动词、调色板颜色、设备/应用分组与排序、Top 6 图表、媒体聚合、徽标文案等）均已在服务端完成，第三方服务**只需编写 HTML/CSS 即可呈现与网站相同的信息**。
+
+参数与 `/api/dashboard` 相同：`date`、`tz`、`device_id`。
+
+### 请求示例
+
+```bash
+curl "https://example.com/api/dashboard/view?tz=-480"
+```
+
+### 响应结构
+
+```jsonc
+{
+  // 页面级元信息（全部为可直接渲染的文案）
+  "meta": {
+    "api": "dashboard/view",
+    "version": "1.0",
+    "date": "2026-08-15",
+    "date_display": "8月15日 周六",       // 时间线标题日期
+    "prev_date": "2026-08-14",            // 前一天（日期导航）
+    "next_date": "2026-08-16",
+    "is_today": true,
+    "site_title": "Monika Now",
+    "greeting": "夜阑人静",               // 按时段问候语
+    "refresh_hint": "每 10 秒自动刷新",
+    "server_time": "2026-08-14T16:14:50.271Z",
+    "server_time_display": "00:14",        // 顶栏时间（已按 tz 转换）
+    "timezone_offset_minutes": -480,
+    "device_filter": null,
+    "viewer_count": 3,
+    "viewer_text": "3 人在看"              // 无人时为 null（UI 不显示）
+  },
+
+  // 左栏"此刻在线"面板
+  "presence": {
+    "online": true,
+    "status_label": "此刻在线",            // 离线时为 null
+    "offline_poem": null,                  // 离线时为 ["月落乌啼","万籁俱寂，设备已入眠"]
+    "hero": {                              // 离线时为 null
+      "app_text": "正在用 Trae CN",
+      "title_text": "写「root [SSH: ...] - TraeCode CN」",
+      "description": "正在查看「...」喵~"  // 应用描述文案
+    },
+    "music": { "label": "正在听的音乐", "title": "歌名", "artist": "歌手", "via_text": "via Spotify" } // 无为 null
+  },
+
+  // 顶栏设备按钮
+  "devices": [
+    {
+      "device_id": "my-pc",
+      "device_name": "My PC",
+      "platform": "windows",
+      "is_online": true,
+      "status_text": null,                 // 离线时为 "离线"
+      "app_text": "Trae CN · xxx (前台)",   // 前台应用 + 标题
+      "battery_text": "⚡100%"              // 无电量为 null
+    }
+  ],
+
+  // 时间线顶部"此刻"置顶栏（仅今天且有在线设备）
+  "now_summary": { "label": "此刻", "rows": [{ "device_name": "My PC", "app_text": "Trae CN · xxx (前台)" }] },
+
+  // 今日使用 Top 6 图表（含配色与条宽百分比）
+  "usage_chart": {
+    "label": "今日使用 Top 6",
+    "total_minutes": 315,
+    "total_text": "5h15m",
+    "max_minutes": 495,
+    "bars": [
+      { "app_name": "系统设置", "color": "#e8a0b4", "minutes": 495, "duration_text": "8h15m", "percent": 100 }
+    ]
+  },
+
+  // 媒体区（今日歌单 / 今日视频）
+  "media": {
+    "visible": true,
+    "label": "媒体使用",
+    "summary_text": "音乐: 1h30m | 视频: 2h",
+    "music": {
+      "title": "🎵 今日歌单", "total_text": "1h30m",
+      "playing": [{ "badge": "正在听", "title": "歌名", "app_name": "Spotify", "duration_text": "3m", "is_playing": true, "first_played_at": "..." }],
+      "items": [{ "badge": null, "title": "歌名", "duration_text": "3m", "is_playing": false, "first_played_at": "..." }]
+    },
+    "video": null                          // 无视频记录时为 null
+  },
+
+  // AI 每日小结卡片
+  "ai_summary": {
+    "label": "今日小结",
+    "text": "今天主要在...",               // 未生成时为 "每晚 21:00 自动生成"
+    "time_text": "21:00 · AI 生成",        // 未生成时为 "等待生成..."
+    "summary": "今天主要在...",
+    "generated_at": "2026-08-15 21:00:00"
+  },
+
+  // 时间线（设备 → 应用两级分组，应用按时长降序）
+  "timeline": {
+    "title": "时间线",
+    "date_display": "8月15日 周六",
+    "empty": null,                         // 无数据时为 { "poem": "尚无足迹", "sub": "这一天还是一张白纸" }
+    "groups": [
+      {
+        "device_id": "my-pc",
+        "device_name": "My PC",
+        "app_groups": [
+          {
+            "app_name": "系统设置",
+            "color": "#e8a0b4",            // 与站点一致的调色板配色
+            "verb": "操作",                 // 动作词（听/看/写/玩/浏览…）
+            "description": "正在调系统设置喵~",
+            "total_duration_text": "8h15m",
+            "total_duration_minutes": 495,
+            "is_current": true,
+            "now_badge": "Now",            // 非当前为 null
+            "items": [
+              {
+                "time_range_text": "00:00 – 现在",   // 进行中自动显示"现在"
+                "started_at": "2026-08-15 00:00:00",
+                "ended_at": null,
+                "title_text": "浏览GitHub",         // = 动词 + 标题；无标题为 "-"
+                "activity_description": "正在用Edge看「GitHub」喵~",
+                "duration_minutes": 25,
+                "duration_text": "25m"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  // 全局应用 → 颜色映射（自定义样式时可用）
+  "app_colors": { "系统设置": "#e8a0b4", "Microsoft Edge": "#a0c4a8" }
+}
+```
+
+### 与 `/api/dashboard` 的区别
+
+| | `/api/dashboard` | `/api/dashboard/view` |
+|---|---|---|
+| 数据形态 | 结构化原始/半加工数据 | 前端渲染用的最终视图数据 |
+| 时间 | 原始时间字符串 | 额外提供 `HH:MM`、`8月15日 周六`、`21:30 – 现在`、`2h30m` 等展示文本 |
+| 文案 | 无 | 问候语、活动描述（"正在用Edge看「…」喵~"）、动词、徽标（Now/正在听/前台/离线） |
+| 颜色/布局 | 无 | 应用配色、图表条宽百分比、设备→应用分组与排序 |
+| 适用场景 | 数据分析、二次加工 | **直接重写 HTML/CSS 复刻站点信息** |
 
 ---
 
